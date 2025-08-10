@@ -231,12 +231,45 @@ class Database:
 
 
 	def execute_insert(self, table, column, value):
-		# WARNING: no commit here
+		if not value:
+			print(f"INSERT WHAT {table.upper()}?")
+			return Database_Status.FATAL
+
 		with sqlite3.connect(Path(self.path)) as conn:
 			cursor = conn.cursor()
 			cursor.execute("PRAGMA foreign_keys = ON;")
 
-			return self._execute_insert(conn, cursor, table, column, value)
+			try:
+				# Check if the record already exists
+				cursor.execute(
+					f"SELECT id FROM {table} WHERE {column} = ?;",
+					(value,)
+				)
+				row = cursor.fetchone()
+
+				if row:
+					print(f"Duplicate entry in table [{table}]: {value}. Insertion skipped")
+					return Database_Status.OK
+
+				# If not exists, insert
+				cursor.execute(
+					f"INSERT INTO {table} ({column}) VALUES (?);",
+					(value,)
+				)
+
+				conn.commit()
+				print(f"Inserted into table [{table}]: {value}")
+				return Database_Status.OK
+			except sqlite3.Error as e:
+				conn.rollback()
+				print(f"FATAL: Cannot insert into [{table}]. ERROR: {e}")
+				return Database_Status.FATAL
+			except Exception as e:
+				# Who knows what can happens
+				conn.rollback()
+				print(f"Unexpected exception from function [execute_insert]. ERROR: {e}")
+				print(f"\ttable: {table}, column: {column}, value: {value}")
+				return Database_Status.FATAL
 
 
 	def insert_parody(self, parody):

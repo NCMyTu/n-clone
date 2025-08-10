@@ -175,6 +175,7 @@ class Database:
 				f"INSERT INTO {table} ({column}) VALUES (?);", 
 				(value,)
 			)
+
 			print(f"Inserted into table [{table}]: {value}")
 			return Database_Status.OK
 		except sqlite3.Error as e:
@@ -214,8 +215,8 @@ class Database:
 	def _insert_page(self, conn, cursor, doujinshi_id, page_file_name, order_number):
 		try:
 			cursor.execute(
-				"INSERT INTO page (doujinshi_id, page_file_name, order_number) VALUES (?, ?, ?);",
-				(doujinshi_id, file_name, order_number)
+				"INSERT INTO page (doujinshi_id, file_name, order_number) VALUES (?, ?, ?);",
+				(doujinshi_id, page_file_name, order_number)
 			)
 			print(f"Inserted page #{order_number},  for doujinshi #{doujinshi_id}")
 			return Database_Status.OK
@@ -230,6 +231,7 @@ class Database:
 
 
 	def execute_insert(self, table, column, value):
+		# WARNING: no commit here
 		with sqlite3.connect(Path(self.path)) as conn:
 			cursor = conn.cursor()
 			cursor.execute("PRAGMA foreign_keys = ON;")
@@ -625,7 +627,7 @@ class Database:
 
 			try:
 				cursor.execute(
-					"UPDATE doujinshi SET note = ?WHERE id = ?",
+					"UPDATE doujinshi SET note = ? WHERE id = ?",
 					(note, doujinshi_id)
 				)
 
@@ -645,22 +647,22 @@ class Database:
 				return Database_Status.FATAL
 
 
-	def get_doujinshi(self, doijinshi_id):
+	def get_doujinshi(self, doujinshi_id):
 		with sqlite3.connect(Path(self.path)) as conn:
-	        cursor = conn.cursor()
-	        cursor.execute("PRAGMA foreign_keys = ON;")
+			cursor = conn.cursor()
+			cursor.execute("PRAGMA foreign_keys = ON;")
 
 
 if __name__ == "__main__":
 	db = Database(path="../../collection.db.sqlite")
 	db.create_database()
 
-	# db._insert_parody("parody_dummy1")
-	# db._insert_character("character_dummy1")
-	# db._insert_tag("BB")
-	# db._insert_artist("artist_dummy")
-	# db._insert_group("group_dummy")
-	# db._insert_language("language_dummy")
+	db.insert_parody("parody_dummy1")
+	db.insert_character("character_dummy1")
+	db.insert_tag("BB")
+	db.insert_artist("artist_dummy")
+	db.insert_group("group_dummy")
+	db.insert_language("language_dummy")
 
 	d = Doujinshi()
 	d.load_from_json("../../doujin_data.json")

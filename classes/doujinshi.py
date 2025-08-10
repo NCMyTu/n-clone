@@ -36,7 +36,7 @@ class Doujinshi:
 		parodies, characters, tags,
 		artists, groups,
 		languages,
-		page_order, added_at, note,
+		page_order, added_at, note
 	):
 		self.id = doujinshi_id
 		self.path = Path(path).as_posix()
@@ -59,6 +59,17 @@ class Doujinshi:
 		self.cover_page_file_name = cover_page_file_name
 		self.added_at = added_at
 
+		return self
+
+
+	def from_partial_data(self, doujinshi_id, path, full_name, cover_page_file_name, languages):
+		self.id = doujinshi_id
+		self.path = Path(path).as_posix()
+		self.full_name = full_name
+		self.languages = languages
+		self.cover_page_file_name = cover_page_file_name
+		return self
+
 
 	@classmethod
 	def set_path_prefix(cls, prefix):
@@ -75,10 +86,10 @@ class Doujinshi:
 				data = json.load(f)
 		except FileNotFoundError:
 			print(f"File not found: {json_path}")
-			return
+			return self
 		except json.JSONDecodeError as e:
 			print(f"JSON decode error: {e}")
-			return
+			return self
 
 		try:
 			self.id = data["id"]
@@ -102,6 +113,8 @@ class Doujinshi:
 		except KeyError as e:
 			self.reset()
 			print(f"Key doesnt exist. ERROR: {e}")
+
+		return self
 
 
 	def strict_mode(self):
@@ -171,6 +184,5 @@ class Doujinshi:
 			}, file, ensure_ascii=False, indent=4)
 
 if __name__ == "__main__":
-	d = Doujinshi()
-	d.load_from_json("../../doujin_data.json")
+	d = Doujinshi().load_from_json("../../doujin_data.json")
 	d.print_info()

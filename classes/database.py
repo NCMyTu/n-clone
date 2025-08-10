@@ -621,6 +621,40 @@ class Database:
 		)
 
 
+	def remove_all_pages_from_doujinshi(self, doujinshi_id):
+		with sqlite3.connect(Path(self.path)) as conn:
+			cursor = conn.cursor()
+			cursor.execute("PRAGMA foreign_keys = ON;")
+
+			try:
+				# Verify doujinshi exists
+				cursor.execute(
+					"SELECT 1 FROM doujinshi WHERE id = ? LIMIT 1;",
+					(doujinshi_id,)
+				)
+				if not cursor.fetchone():
+					print(f"Doujinshi #{doujinshi_id} not found. Cannot add pages.")
+					return Database_Status.NON_FATAL_DOUJINSHI_NOT_FOUND
+
+				# Remove existing pages first
+				cursor.execute(
+					"DELETE FROM page WHERE doujinshi_id = ?;",
+					(doujinshi_id,)
+				)
+				print(f"Removed all pages for doujinshi #{doujinshi_id}.")
+
+				conn.commit()
+				return Database_Status.OK
+			except sqlite3.IntegrityError as e:
+				conn.rollback()
+				print(f"Integrity error while remove all pages for doujinshi #{doujinshi_id}. ERROR: {e}")
+				return Database_Status.NON_FATAL
+			except Exception as e:
+				conn.rollback()
+				print(f"Unexpected exception from function [remove_all_pages_from_doujinshi]. ERROR: {e}")
+				return Database_Status.FATAL
+
+
 	def remove_doujinshi(self, doujinshi_id):
 		confirm = input("You want to REMOVE a doujinshi. Do you want to continue? (Y/n)\n\t>>> ")
 		if confirm != "Y":
@@ -645,7 +679,7 @@ class Database:
 				return Database_Status.OK
 			except sqlite3.Error as e:
 				conn.rollback()
-				print(f"FATAL: Could not remove doujinshi #{doujinshi_id}. ERROR: {e}")
+				print(f"Integrity error while removing all pages from doujinshi #{doujinshi_id}. ERROR: {e}")
 				return Database_Status.FATAL
 			except Exception as e:
 				conn.rollback()
@@ -680,10 +714,91 @@ class Database:
 				return Database_Status.FATAL
 
 
-	def get_doujinshi(self, doujinshi_id):
+	def get_doujinshi(self, doujinshi_id, partial=False):
+		def get_related(table, join_table):
+			cursor.execute(f"""
+				SELECT t.name
+				FROM {table} t
+				JOIN {join_table} jt ON jt.{table}_id = t.id
+				WHERE jt.doujinshi_id = ?
+				ORDER BY t.name;
+			""", (doujinshi_id,))
+			return [r[0] for r in cursor.fetchall()]
+
 		with sqlite3.connect(Path(self.path)) as conn:
 			cursor = conn.cursor()
 			cursor.execute("PRAGMA foreign_keys = ON;")
+
+			cursor.execute(
+				"""
+				SELECT
+					path,
+					full_name, bold_name,
+					full_name_original, bold_name_original,
+					cover_page_id,
+					added_at, note
+				FROM doujinshi
+				WHERE id = ?;
+				""",
+				(doujinshi_id,)
+			)
+			row = cursor.fetchone()
+
+			if not row:
+				return None
+
+			data = {
+				"path": row[0],
+				"full_name": row[1],
+				"bold_name": row[2],
+				"full_name_original": row[3],
+				"bold_name_original": row[4],
+				"cover_page_file_name": None,
+				"added_at": row[6],
+				"note": row[7],
+			}
+
+			if row[5] is not None:  # cover_page_id
+				cursor.execute(
+					"SELECT file_name FROM page WHERE id = ? LIMIT 1;",
+					(row[5],)
+				)
+				cover_row = cursor.fetchone()
+				data["cover_page_file_name"] = cover_row[0] if cover_row else None
+
+			data["languages"]  = get_related("language", "doujinshi_language")
+
+			if partial:
+				return Doujinshi().from_partial_data(
+					doujinshi_id,
+					data["path"],
+					data["full_name"],
+					data["cover_page_file_name"],
+					data["languages"]
+				)
+
+			data["parodies"]   = get_related("parody", "doujinshi_parody")
+			data["characters"] = get_related("character", "doujinshi_character")
+			data["tags"]       = get_related("tag", "doujinshi_tag")
+			data["artists"]    = get_related("artist", "doujinshi_artist")
+			data["groups"]     = get_related("circle", "doujinshi_circle")
+
+			cursor.execute(
+				"SELECT file_name FROM page WHERE doujinshi_id = ? ORDER BY order_number;",
+				(doujinshi_id,)
+			)
+			page_order = [r[0] for r in cursor.fetchall()]
+
+			return Doujinshi().from_data(
+				doujinshi_id, data["path"],
+				data["full_name"], data["bold_name"],
+				data["full_name_original"], data["bold_name_original"],
+				data["cover_page_file_name"],
+				data["parodies"], data["characters"], data["tags"],
+				data["artists"], data["groups"],
+				data["languages"],
+				page_order, data["added_at"], data["note"]
+			)
 
 
 if __name__ == "__main__":
@@ -697,8 +812,7 @@ if __name__ == "__main__":
 	db.insert_group("group_dummy")
 	db.insert_language("language_dummy")
 
-	d = Doujinshi()
-	d.load_from_json("../../doujin_data.json")
+	d = Doujinshi().load_from_json("../../doujin_data.json")
 	d.print_info()
 
 	is_fatal = db.insert_doujinshi(d)
@@ -709,4 +823,9 @@ if __name__ == "__main__":
 	else:
 		print("Insertion succeeded.")
 
-	db.remove_doujinshi(123)
+	# db.remove_doujinshi(123)
+	d = db.get_doujinshi(123, True)
+	if d:
+		d.print_info()
+	else:
+		print("no doujinshi was found")

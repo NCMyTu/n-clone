@@ -3,7 +3,7 @@ import sqlite3
 from enum import Enum, auto
 from doujinshi import Doujinshi
 
-
+# conn.rollback() calls might be excessive, but if you can, be explicit as much as possible.
 class Database_Status(Enum):
 	OK = auto()
 	FATAL = auto()
@@ -526,6 +526,33 @@ class Database:
 				conn.rollback()
 				print(f"Unexpected exception from function [remove_doujinshi]. ERROR: {e}")
 				return Database_Status.FATAL
+
+
+	def update_note_of_doujinshi(self, doujinshi_id, note):
+		with sqlite3.connect(Path(self.path)) as conn:
+			cursor = conn.cursor()
+			cursor.execute("PRAGMA foreign_keys = ON;")
+
+			try:
+				cursor.execute(
+				    "UPDATE doujinshi SET note = ?WHERE id = ?",
+					(note, doujinshi_id)
+				)
+
+				if cursor.rowcount > 0:
+					conn.commit()
+					return Database_Status.OK
+
+				return Database_Status.NON_FATAL_DOUJINSHI_NOT_FOUND
+
+			except sqlite3.Error as e:
+				conn.rollback()
+		        print(f"SQLite error occurred in update_note_of_doujinshi. ERROR: {e}")
+		        return Database_Status.FATAL
+		    except Exception as e:
+		    	conn.rollback()
+		        print(f"Unexpected error from update_note_of_doujinshi. ERROR: {e}")
+		        return Database_Status.FATAL
 
 
 if __name__ == "__main__":

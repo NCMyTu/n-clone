@@ -7,7 +7,7 @@ import os
 from flask import Flask, render_template, send_from_directory
 import pathlib
 import sqlite3
-import db.db_util as dbu
+from classes import database
 
 app = Flask(__name__)
 app.url_map.strict_slashes = False
@@ -17,9 +17,7 @@ ROOT_PREFIX = "C:/Users/ncmt/Desktop/Classified/"
 
 @app.route("/")
 def render_home():
-	return render_template(
-		"home.html"
-	)
+	return render_template("home.html")
 
 @app.errorhandler(404)
 def page_not_found(e):
@@ -27,7 +25,7 @@ def page_not_found(e):
 
 @app.route("/g/<int:doujinshi_id>")
 def render_doujinshi_preview(doujinshi_id):
-	doujinshi = dbu.get_doujinshi(DB_PATH, doujinshi_id)
+	doujinshi = database.get_doujinshi(DB_PATH, doujinshi_id)
 
 	doujinshi["before"] = ""
 	doujinshi["pretty"] = ""

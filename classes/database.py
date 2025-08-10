@@ -211,6 +211,24 @@ class Database:
 		return self._execute_insert(conn, cursor, table="language", column="name", value=language)
 
 
+	def _insert_page(self, conn, cursor, doujinshi_id, page_file_name, order_number):
+		try:
+			cursor.execute(
+				"INSERT INTO page (doujinshi_id, page_file_name, order_number) VALUES (?, ?, ?);",
+				(doujinshi_id, file_name, order_number)
+			)
+			print(f"Inserted page #{order_number},  for doujinshi #{doujinshi_id}")
+			return Database_Status.OK
+		except sqlite3.IntegrityError as e:
+			conn.rollback()
+			print(f"Integrity error while inserting page #{order_number} for doujinshi #{doujinshi_id}. ERROR: {e}")
+			return Database_Status.FATAL
+		except Exception as e:
+			conn.rollback()
+			print(f"Unexpected exception while inserting page for doujinshi #{doujinshi_id}. ERROR: {e}")
+			return Database_Status.FATAL
+
+
 	def execute_insert(self, table, column, value):
 		with sqlite3.connect(Path(self.path)) as conn:
 			cursor = conn.cursor()
@@ -335,6 +353,55 @@ class Database:
 		return self.link_doujinshi_with_many("doujinshi_language", "language", doujinshi_id, language)
 
 
+	def add_pages_to_doujinshi(self, doujinshi_id, page_order_list):
+		if not page_order_list:
+			print(f"INSERT WHAT PAGES?")
+			return Database_Status.NON_FATAL
+
+		with sqlite3.connect(Path(self.path)) as conn:
+			cursor = conn.cursor()
+			cursor.execute("PRAGMA foreign_keys = ON;")
+
+			try:
+				# Verify doujinshi exists
+				cursor.execute(
+					"SELECT 1 FROM doujinshi WHERE id = ? LIMIT 1;",
+					(doujinshi_id,)
+				)
+				if not cursor.fetchone():
+					print(f"Doujinshi #{doujinshi_id} not found. Cannot add pages.")
+					return Database_Status.NON_FATAL_DOUJINSHI_NOT_FOUND
+
+				# Remove existing pages first
+				cursor.execute(
+					"DELETE FROM page WHERE doujinshi_id = ?;",
+					(doujinshi_id,)
+				)
+
+				for order_number, file_name in enumerate(page_order_list, start=1):
+					if not file_name:
+						print(f"Empty file name for page #{order_number} of doujinshi #{doujinshi_id}.")
+						conn.rollback()
+						return Database_Status.FATAL
+
+					cursor.execute(
+						"INSERT INTO page (doujinshi_id, file_name, order_number) VALUES (?, ?, ?);",
+						(doujinshi_id, file_name, order_number)
+					)
+					print(f"Inserted page #{order_number} ({file_name}) for doujinshi #{doujinshi_id}")
+
+				conn.commit()
+				return Database_Status.OK
+			except sqlite3.IntegrityError as e:
+				conn.rollback()
+				print(f"Integrity error while inserting pages for doujinshi #{doujinshi_id}. ERROR: {e}")
+				return Database_Status.NON_FATAL
+			except Exception as e:
+				conn.rollback()
+				print(f"Unexpected exception from function [add_pages_to_doujinshi]. ERROR: {e}")
+				return Database_Status.FATAL
+
+
 	def insert_doujinshi(self, doujinshi):
 		if not doujinshi.strict_mode():
 			return Database_Status.NON_FATAL
@@ -395,8 +462,31 @@ class Database:
 						conn.rollback()
 						return Database_Status.FATAL
 
-				# for page in doujinshi.page_order:
-					# pass
+				# Insert pages
+				page_cover_id = None
+				for order_number, page_file_name in enumerate(doujinshi.page_order, start=1):
+					status = self._insert_page(conn, cursor, doujinshi.id, page_file_name, order_number)
+					if status == Database_Status.FATAL:
+						conn.rollback()
+						return Database_Status.FATAL
+
+					# Get the ID of the first inserted page (cover)
+					if order_number == 1:
+						cursor.execute(
+							"SELECT id FROM page WHERE doujinshi_id = ? AND order_number = 1 LIMIT 1;",
+							(doujinshi.id,)
+						)
+						row = cursor.fetchone()
+						if row:
+							page_cover_id = row[0]
+
+				# Set cover_page_id if found
+				if page_cover_id is not None:
+					cursor.execute(
+						"UPDATE doujinshi SET cover_page_id = ? WHERE id = ?;",
+						(page_cover_id, doujinshi.id)
+					)
+					print(f"Set cover_page_id = {page_cover_id} for doujinshi #{doujinshi.id}")
 
 				conn.commit()
 				return Database_Status.OK
@@ -535,7 +625,7 @@ class Database:
 
 			try:
 				cursor.execute(
-				    "UPDATE doujinshi SET note = ?WHERE id = ?",
+					"UPDATE doujinshi SET note = ?WHERE id = ?",
 					(note, doujinshi_id)
 				)
 
@@ -547,12 +637,18 @@ class Database:
 
 			except sqlite3.Error as e:
 				conn.rollback()
-		        print(f"SQLite error occurred in update_note_of_doujinshi. ERROR: {e}")
-		        return Database_Status.FATAL
-		    except Exception as e:
-		    	conn.rollback()
-		        print(f"Unexpected error from update_note_of_doujinshi. ERROR: {e}")
-		        return Database_Status.FATAL
+				print(f"SQLite error occurred in update_note_of_doujinshi. ERROR: {e}")
+				return Database_Status.FATAL
+			except Exception as e:
+				conn.rollback()
+				print(f"Unexpected error from update_note_of_doujinshi. ERROR: {e}")
+				return Database_Status.FATAL
+
+
+	def get_doujinshi(self, doijinshi_id):
+		with sqlite3.connect(Path(self.path)) as conn:
+	        cursor = conn.cursor()
+	        cursor.execute("PRAGMA foreign_keys = ON;")
 
 
 if __name__ == "__main__":

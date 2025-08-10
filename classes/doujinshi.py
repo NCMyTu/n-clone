@@ -28,16 +28,15 @@ class Doujinshi:
 		self.page_order = []
 
 
-	def from_data(self, doujinshi_id, path, 
+	def from_data(self, 
+		doujinshi_id, path, 
 		full_name, bold_name,
 		full_name_original, bold_name_original,
-		note,
-		parodies,
-		characters,
-		tags,
+		cover_page_file_name,
+		parodies, characters, tags,
 		artists, groups,
 		languages,
-		page_order
+		page_order, added_at, note,
 	):
 		self.id = doujinshi_id
 		self.path = Path(path).as_posix()
@@ -57,6 +56,8 @@ class Doujinshi:
 		self.languages = languages
 
 		self.page_order = page_order
+		self.cover_page_file_name = cover_page_file_name
+		self.added_at = added_at
 
 
 	@classmethod
@@ -143,6 +144,8 @@ class Doujinshi:
 		print(f"groups: {'\n\t' + '\n\t'.join(self.groups) if self.groups else ''}")
 		print(f"languages: {'\n\t' + '\n\t'.join(self.languages) if self.languages else ''}")
 		print(f"page_order: {'\n\t' + '\n\t'.join(self.page_order) if self.page_order else ''}")
+		print(f"cover_page_file_name: {self.cover_page_file_name}")
+		print(f"added_at: {self.added_at}")
 		print(f"note: {self.note}")
 		print("----------------------------------")
 
@@ -164,6 +167,7 @@ class Doujinshi:
 				"groups": self.groups,
 				"languages": self.languages,
 				"page_order": self.page_order,
+				"note": self.note
 			}, file, ensure_ascii=False, indent=4)
 
 if __name__ == "__main__":

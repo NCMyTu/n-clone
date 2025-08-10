@@ -1,9 +1,11 @@
 # TODO:  
-- [x] Add update_note  
-- [ ] Add update_page (delete old entries from page table and add new ones)  
-- [ ] Add db.check_health: check if there are any stray doujinshi in joint tables  
-- [ ] Add page confirmation in doujinshi.strict_mode  
-- [ ] Add a final confirmation to doujinshi.strict_mode  
+- [x] Add Database.update_note_of_doujinshi 
+- [x] Add Database.add_pages_to_doujinshi (delete old entries from page table and add new ones)  
+- [ ] Add Database.remove_pages_from_doujinshi
+- [ ] Implement Database.get_doujinshi
+- [ ] Add Database.check_health: check if there are any stray doujinshi in joint tables  
+- [ ] Add page confirmation in Doujinshi.strict_mode  
+- [ ] Add a final confirmation to Doujinshi.strict_mode  
 - [ ] Use logging instead of printing  
 - [ ] Db design  
 - [ ] Docs  

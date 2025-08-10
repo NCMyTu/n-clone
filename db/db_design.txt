@@ -1,0 +1,91 @@
+// Use DBML to define your database structure
+// Docs: https://dbml.dbdiagram.io/docs
+
+Table doujinshi {
+  id integer [primary key]
+  name varchar [not null]
+  full_name varchar [not null]
+  full_name_original varchar
+  bold_name varchar [not null, note: "pretty span"]
+  bold_name_original varchar [note: "pretty span"]
+  path varchar [not null]
+  added_at timestamp [not null]
+
+  group_id integer [ref: > group.id]
+  cover_page_id integer [ref: > page.id]
+  category_id integer [ref: > category.id]
+}
+
+Table parody {
+  id integer [primary key]
+  name varchar [not null, unique, note: "original"]
+}
+
+Table character {
+  id integer [primary key]
+  name varchar [not null, unique]
+}
+
+Table tag {
+  id integer [primary key]
+  name varchar [not null, unique]
+}
+
+Table artist {
+  id integer [primary key]
+  name varchar [not null, unique]
+}
+
+Table group {
+  id integer [primary key]
+  name varchar [not null, unique]
+}
+
+Table language {
+  id integer [primary key]
+  name varchar [not null, unique, note: "translated, en, jp, cn"]
+}
+
+Table page {
+  id integer [primary key]
+  file_name varchar [not null, note: "may not be unique"]
+  order_number integer [not null]
+  doujinshi_id integer [ref: > doujinshi.id]
+}
+
+// Join tables for many-to-many relationships
+
+Table doujinshi_parody {
+  doujinshi_id integer [ref: > doujinshi.id]
+  parody_id integer [ref: > parody.id]
+  Primary Key (doujinshi_id, parody_id)
+}
+
+Table doujinshi_tag {
+  doujinshi_id integer [ref: > doujinshi.id]
+  tag_id integer [ref: > tag.id]
+  Primary Key (doujinshi_id, tag_id)
+}
+
+Table doujinshi_character {
+  doujinshi_id integer [ref: > doujinshi.id]
+  character_id integer [ref: > character.id]
+  Primary Key (doujinshi_id, character_id)
+}
+
+Table doujinshi_artist {
+  doujinshi_id integer [ref: > doujinshi.id]
+  artist_id integer [ref: > artist.id]
+  Primary Key (doujinshi_id, artist_id)
+}
+
+Table doujinshi_language {
+  doujinshi_id integer [ref: > doujinshi.id]
+  language_id integer [ref: > language.id]
+  Primary Key (doujinshi_id, language_id)
+}
+
+Table category {
+  id integer [primary key]
+  name varchar [not null]
+}

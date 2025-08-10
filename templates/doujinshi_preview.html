@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}{{ doujinshi["pretty"] }} | n-clone{% endblock %}
+
+{% block content %}
+<div id="content">
+	<div class="container" id="info-container">
+		<div id="cover">
+			<a href="/g/{{ doujinshi_id }}/1">
+				<img class="lazyload" data-src="/g/{{ doujinshi_id }}/1" alt="{{ doujinshi_id }}_1">
+			</a>
+		</div>
+
+		<div id="info-block">
+			<h1 class="title">
+				<span class="before">{{ doujinshi["before"] }}</span>
+				<span class="pretty">{{ doujinshi["pretty"] }}</span>
+				<span class="after">{{ doujinshi["after"] }}</span>
+			</h1>
+			<h2 class="title">
+				<span class="before">{{ doujinshi["before_original"] }}</span>
+				<span class="pretty">{{ doujinshi["pretty_original"] }}</span>
+				<span class="after">{{ doujinshi["after_original"] }}</span>
+			</h2>
+			<h3 id="gallery_id">
+				<span class="hash">#</span>{{ doujinshi_id }}
+			</h3>
+			{% if doujinshi["parodies"] %}
+			<div class="tag-container field-name">
+				Parodies:
+				<span class="tags">
+					{% for parody in doujinshi["parodies"] %}
+			        <a href="/parody/{{ parody	 | replace(' ', '-') }}" class="tag">
+			            <span class="name">{{ parody }}</span>
+			            <!-- <span class="count">{{ parody.count }}</span> -->
+			        </a>
+			        {% endfor %}
+				</span>
+			</div>
+			{% endif %}
+			{% if doujinshi["tags"] %}
+			<div class="tag-container field-name">
+				Tags:
+				<span class="tags">
+					{% for tag in doujinshi["tags"] %}
+			        <a href="/parody/{{ tag	 | replace(' ', '-') }}" class="tag">
+			            <span class="name">{{ tag }}</span>
+			            <!-- <span class="count">{{ tag.count }}</span> -->
+			        </a>
+			        {% endfor %}
+				</span>
+			</div>
+			{% endif %}
+			{% if doujinshi["artists"] %}
+			<div class="tag-container field-name">
+				Artists:
+				<span class="tags">
+					{% for artist in doujinshi["artists"] %}
+			        <a href="/parody/{{ artist	 | replace(' ', '-') }}" class="tag">
+			            <span class="name">{{ artist }}</span>
+			            <!-- <span class="count">{{ artist.count }}</span> -->
+			        </a>
+			        {% endfor %}
+				</span>
+			</div>
+			{% endif %}
+			{% if doujinshi["groups"] %}
+			<div class="tag-container field-name">
+				Groups:
+				<span class="tags">
+					{% for group in doujinshi["groups"] %}
+			        <a href="/parody/{{ group | replace(' ', '-') }}" class="tag">
+			            <span class="name">{{ group }}</span>
+			            <!-- <span class="count">{{ group.count }}</span> -->
+			        </a>
+			        {% endfor %}
+				</span>
+			</div>
+			{% endif %}
+			{% if doujinshi["languages"] %}
+			<div class="tag-container field-name">
+				Languages:
+				<span class="tags">
+					{% for language in doujinshi["languages"] %}
+			        <a href="/parody/{{ language | replace(' ', '-') }}" class="tag">
+			            <span class="name">{{ language }}</span>
+			            <!-- <span class="count">{{ language.count }}</span> -->
+			        </a>
+			        {% endfor %}
+				</span>
+			</div>
+			{% endif %}
+			<div class="tag-container field-name">
+				Pages:
+				<span class="tags">
+			        <a href="/parody/{{ language | replace(' ', '-') }}" class="tag"> <!--TODO: change the href-->
+			            <span class="name">{{ doujinshi["num_pages"] }}</span>
+			        </a>
+				</span>
+			</div>
+		</div>
+	</div>
+
+	<div class="container" id="thumbnail-container">
+		{% for page in doujinshi["pages"] %}
+		<a class="gallerythumb" href="/g/{{ doujinshi['id'] }}/{{ loop.index }}" rel="nofollow">
+			<img class="lazyload" data-src="{{ url_for('serve_image', doujinshi_id=doujinshi_id, page_order_number=loop.index) }}" alt="{{ doujinshi_id }}_{{ loop.index }}">
+		</a>
+		{% endfor %}
+	</div>
+</div>
+{% endblock %}

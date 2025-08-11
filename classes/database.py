@@ -714,7 +714,8 @@ class Database:
 				return Database_Status.FATAL
 
 
-	def get_doujinshi(self, doujinshi_id, partial=False):
+	def _get_doujinshi(self, conn, cursor, doujinshi_id, partial=False):
+	# IMPORTANT: handle foreign_keys, commit and rollback yourself
 		def get_related(table, join_table):
 			cursor.execute(f"""
 				SELECT t.name
@@ -725,80 +726,101 @@ class Database:
 			""", (doujinshi_id,))
 			return [r[0] for r in cursor.fetchall()]
 
+		cursor.execute(
+			"""
+			SELECT
+				path,
+				full_name, bold_name,
+				full_name_original, bold_name_original,
+				cover_page_id,
+				added_at, note
+			FROM doujinshi
+			WHERE id = ?;
+			""",
+			(doujinshi_id,)
+		)
+		row = cursor.fetchone()
+		if not row:
+			return None
+
+		data = {
+			"path": row[0],
+			"full_name": row[1],
+			"bold_name": row[2],
+			"full_name_original": row[3],
+			"bold_name_original": row[4],
+			"cover_page_file_name": None,
+			"added_at": row[6],
+			"note": row[7],
+		}
+
+		if row[5] is not None:  # cover_page_id
+			cursor.execute(
+				"SELECT file_name FROM page WHERE id = ? LIMIT 1;",
+				(row[5],)
+			)
+			cover_row = cursor.fetchone()
+			data["cover_page_file_name"] = cover_row[0] if cover_row else None
+
+		data["languages"]  = get_related("language", "doujinshi_language")
+
+		if partial:
+			return Doujinshi().from_partial_data(
+				doujinshi_id,
+				data["path"],
+				data["full_name"],
+				data["cover_page_file_name"],
+				data["languages"]
+			)
+
+		data["parodies"]   = get_related("parody", "doujinshi_parody")
+		data["characters"] = get_related("character", "doujinshi_character")
+		data["tags"]       = get_related("tag", "doujinshi_tag")
+		data["artists"]    = get_related("artist", "doujinshi_artist")
+		data["groups"]     = get_related("circle", "doujinshi_circle")
+
+		cursor.execute(
+			"SELECT file_name FROM page WHERE doujinshi_id = ? ORDER BY order_number;",
+			(doujinshi_id,)
+		)
+		page_order = [r[0] for r in cursor.fetchall()]
+
+		return Doujinshi().from_data(
+			doujinshi_id, data["path"],
+			data["full_name"], data["bold_name"],
+			data["full_name_original"], data["bold_name_original"],
+			data["cover_page_file_name"],
+			data["parodies"], data["characters"], data["tags"],
+			data["artists"], data["groups"],
+			data["languages"],
+			page_order, data["added_at"], data["note"]
+		)
+
+
+	def get_doujinshi(self, doujinshi_id, partial=False):
+		with sqlite3.connect(Path(self.path)) as conn:
+			cursor = conn.cursor()
+			cursor.execute("PRAGMA foreign_keys = ON;")
+			return self._get_doujinshi(conn, cursor, doujinshi_id, partial)
+
+
+	def get_doujinshi_in_batch(self, batch_size, offset, partial=False):
 		with sqlite3.connect(Path(self.path)) as conn:
 			cursor = conn.cursor()
 			cursor.execute("PRAGMA foreign_keys = ON;")
 
 			cursor.execute(
-				"""
-				SELECT
-					path,
-					full_name, bold_name,
-					full_name_original, bold_name_original,
-					cover_page_id,
-					added_at, note
-				FROM doujinshi
-				WHERE id = ?;
-				""",
-				(doujinshi_id,)
+				"SELECT id FROM doujinshi ORDER BY id DESC LIMIT ? OFFSET ?;",
+				(batch_size, offset)
 			)
-			row = cursor.fetchone()
+			ids = [r[0] for r in cursor.fetchall()]
 
-			if not row:
-				return None
+			return [self._get_doujinshi(conn, cursor, d_id, partial) for d_id in ids]
 
-			data = {
-				"path": row[0],
-				"full_name": row[1],
-				"bold_name": row[2],
-				"full_name_original": row[3],
-				"bold_name_original": row[4],
-				"cover_page_file_name": None,
-				"added_at": row[6],
-				"note": row[7],
-			}
 
-			if row[5] is not None:  # cover_page_id
-				cursor.execute(
-					"SELECT file_name FROM page WHERE id = ? LIMIT 1;",
-					(row[5],)
-				)
-				cover_row = cursor.fetchone()
-				data["cover_page_file_name"] = cover_row[0] if cover_row else None
-
-			data["languages"]  = get_related("language", "doujinshi_language")
-
-			if partial:
-				return Doujinshi().from_partial_data(
-					doujinshi_id,
-					data["path"],
-					data["full_name"],
-					data["cover_page_file_name"],
-					data["languages"]
-				)
-
-			data["parodies"]   = get_related("parody", "doujinshi_parody")
-			data["characters"] = get_related("character", "doujinshi_character")
-			data["tags"]       = get_related("tag", "doujinshi_tag")
-			data["artists"]    = get_related("artist", "doujinshi_artist")
-			data["groups"]     = get_related("circle", "doujinshi_circle")
-
-			cursor.execute(
-				"SELECT file_name FROM page WHERE doujinshi_id = ? ORDER BY order_number;",
-				(doujinshi_id,)
-			)
-			page_order = [r[0] for r in cursor.fetchall()]
-
-			return Doujinshi().from_data(
-				doujinshi_id, data["path"],
-				data["full_name"], data["bold_name"],
-				data["full_name_original"], data["bold_name_original"],
-				data["cover_page_file_name"],
-				data["parodies"], data["characters"], data["tags"],
-				data["artists"], data["groups"],
-				data["languages"],
-				page_order, data["added_at"], data["note"]
-			)
+	def get_count_of_#IMPLEMENT HERE"""
+		# Take a list of items as input
+		# Return a dict of items and their counts
 
 
 if __name__ == "__main__":
@@ -824,8 +846,14 @@ if __name__ == "__main__":
 		print("Insertion succeeded.")
 
 	# db.remove_doujinshi(123)
-	d = db.get_doujinshi(123, True)
-	if d:
-		d.print_info()
-	else:
-		print("no doujinshi was found")
+	# d = db.get_doujinshi(123, partial=True)
+	# if d:
+	# 	d.print_info()
+	# else:
+	# 	print("no doujinshi was found")
+
+	d_batch = db.get_doujinshi_in_batch(25, 0)
+	for d in d_batch:
+		d.print_info() 
+
+

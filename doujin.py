@@ -64,6 +64,7 @@ class Doujin:
 		self.groups = []
 		self.languages = [lang]
 		self.page_order = []
+		self.note = None
 
 	def print(self):
 		print(f"--------doujin info--------")
@@ -78,6 +79,7 @@ class Doujin:
 		print(f"group: {self.group}")
 		print(f"num_pages: {self.num_pages}")
 		print(f"img_list: {self.page_order}")
+		print(f"note: {self.note}")
 		print("----------------------------")
 
 	def parse_metadata(self, path, name):

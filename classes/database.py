@@ -318,7 +318,7 @@ class Database:
 				f"INSERT INTO {join_table} (doujinshi_id, {table_to_link}_id) VALUES(?, ?);",
 				(doujinshi_id, table_to_link_id)
 			)
-			print(f"Link into [doujinshi] #{doujinshi_id} with [{table_to_link}] {value}.")
+			print(f"Linked [doujinshi] #{doujinshi_id} with [{table_to_link}] {value}.")
 			return Database_Status.OK
 		except sqlite3.IntegrityError as e:
 			print(f"ERROR: {e}.", end=" ")
@@ -841,9 +841,49 @@ class Database:
 		return self._update_column_of_doujinshi(doujinshi_id, "path", value)
 
 
-	# def get_count_of_#IMPLEMENT HERE"""
-		# Take a list of items as input
-		# Return a dict of items and their counts
+	def _get_count_of_values(self, table, values):
+		value_count = {value: 0 for value in values}
+
+		placeholder = ",".join("?" for _ in values)  # e.g. ?, ?, ?
+		query = f"""
+			SELECT {table}.name, COUNT(*) AS count
+			FROM doujinshi_{table}
+			JOIN {table} ON {table}.id = doujinshi_{table}.{table}_id
+			WHERE {table}.name in ({placeholder})
+			GROUP BY {table}.name
+		"""
+
+		with sqlite3.connect(Path(self.path)) as conn:
+			cursor = conn.cursor()
+			cursor.execute(query, values)
+			for value, count in cursor.fetchall():
+				value_count[value] = count
+
+		return value_count
+		
+
+	def get_count_of_parodies(self, values):
+		return self._get_count_of_values("parody", values)
+
+
+	def get_count_of_characters(self, values):
+		return self._get_count_of_values("character", values)
+
+
+	def get_count_of_tags(self, values):
+		return self._get_count_of_values("tag", values)
+
+
+	def get_count_of_artists(self, values):
+		return self._get_count_of_values("artist", values)
+
+
+	def get_count_of_groups(self, values):
+		return self._get_count_of_values("circle", values)
+
+
+	def get_count_of_languages(self, values):
+		return self._get_count_of_values("language", values)
 
 
 if __name__ == "__main__":
@@ -879,4 +919,22 @@ if __name__ == "__main__":
 	for d in d_batch:
 		d.print_info() 
 
+	print(db.get_count_of_parodies(d_batch[0].parodies))
+	print(d_batch[0].characters)
+	print(db.get_count_of_characters(d_batch[0].characters))
+	print(db.get_count_of_tags(d_batch[0].tags))
+	print(db.get_count_of_artists(d_batch[0].artists))
+	print(db.get_count_of_groups(d_batch[0].groups))
+	print(db.get_count_of_languages(d_batch[0].languages))
+	old_artist_name = d_batch[0].artists[0]
+	print("old_artist_name: ", old_artist_name)
+	print(d_batch[0].artists)
 
+	db.insert_artist("newly added artist name")
+	db.insert_artist("newly added artist name")
+	db.remove_artist_from_doujinshi(d_batch[0].id, d_batch[0].artists[0])
+	db.add_artist_to_doujinshi(d_batch[0].id, "newly added artist name")
+	
+	d_batch = db.get_doujinshi_in_batch(25, 0)
+	print(db.get_count_of_artists(d_batch[0].artists))
+	print(db.get_count_of_artists([old_artist_name]))

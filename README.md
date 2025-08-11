@@ -5,7 +5,10 @@
 - [x] Implement Database.get_doujinshi  
 - [x] Implement Database.get_doujinshi_in_batch  
 - [x] Implement update_{column_name_in_doujinshi_table}_of_doujinshi  
-- [ ] Implement get_count_of_{parodies/characters/tags/artists/groups/languages}  
+- [x] Implement get_count_of_{parodies/characters/tags/artists/groups/languages}  
+- [ ] Update Database.insert_{item} to accept a list of items instead of a single item  
+- [ ] Update Database.add_{item}_to_doujinshi to accept a list of items instead of a single item  
+- [ ] Update Database.remove_{item}_from_doujinshi to accept a list of items instead of a single item  
 - [ ] Add Database.check_health: check if there are any stray doujinshi in joint tables  
 - [ ] Add page confirmation in Doujinshi.strict_mode  
 - [ ] Add a final confirmation to Doujinshi.strict_mode  

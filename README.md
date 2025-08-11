@@ -4,6 +4,7 @@
 - [x] Add Database.remove_all_pages_from_doujinshi
 - [x] Implement Database.get_doujinshi  
 - [x] Implement Database.get_doujinshi_in_batch  
+- [x] Implement update_{column_name_in_doujinshi_table}_of_doujinshi  
 - [ ] Implement get_count_of_{parodies/characters/tags/artists/groups/languages}  
 - [ ] Add Database.check_health: check if there are any stray doujinshi in joint tables  
 - [ ] Add page confirmation in Doujinshi.strict_mode  

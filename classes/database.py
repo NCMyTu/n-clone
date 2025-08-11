@@ -687,33 +687,6 @@ class Database:
 				return Database_Status.FATAL
 
 
-	def update_note_of_doujinshi(self, doujinshi_id, note):
-		with sqlite3.connect(Path(self.path)) as conn:
-			cursor = conn.cursor()
-			cursor.execute("PRAGMA foreign_keys = ON;")
-
-			try:
-				cursor.execute(
-					"UPDATE doujinshi SET note = ? WHERE id = ?",
-					(note, doujinshi_id)
-				)
-
-				if cursor.rowcount > 0:
-					conn.commit()
-					return Database_Status.OK
-
-				return Database_Status.NON_FATAL_DOUJINSHI_NOT_FOUND
-
-			except sqlite3.Error as e:
-				conn.rollback()
-				print(f"SQLite error occurred in update_note_of_doujinshi. ERROR: {e}")
-				return Database_Status.FATAL
-			except Exception as e:
-				conn.rollback()
-				print(f"Unexpected error from update_note_of_doujinshi. ERROR: {e}")
-				return Database_Status.FATAL
-
-
 	def _get_doujinshi(self, conn, cursor, doujinshi_id, partial=False):
 	# IMPORTANT: handle foreign_keys, commit and rollback yourself
 		def get_related(table, join_table):
@@ -818,7 +791,57 @@ class Database:
 			return [self._get_doujinshi(conn, cursor, d_id, partial) for d_id in ids]
 
 
-	def get_count_of_#IMPLEMENT HERE"""
+	def _update_column_of_doujinshi(self, doujinshi_id, column, value):
+		with sqlite3.connect(Path(self.path)) as conn:
+			cursor = conn.cursor()
+			cursor.execute("PRAGMA foreign_keys = ON;")
+
+			try:
+				cursor.execute(
+					f"UPDATE doujinshi SET {column} = ? WHERE id = ?;",
+					(value, doujinshi_id)
+				)
+				if cursor.rowcount == 0:
+					return Database_Status.NON_FATAL_DOUJINSHI_NOT_FOUND
+
+				conn.commit()
+				return Database_Status.OK
+			except sqlite3.Error:
+				conn.rollback()
+				return Database_Status.FATAL
+			except:
+				conn.roll_back()
+				return Database_Status.FATAL
+
+
+	def update_full_name_of_doujinshi(self, doujinshi_id, value):
+		if not value:
+			print("full_name cannot be None or empty")
+			return Database_Status.NON_FATAL
+		return self._update_column_of_doujinshi(doujinshi_id, "full_name", value)
+
+
+	def update_full_name_original_of_doujinshi(self, doujinshi_id, value):
+		return self._update_column_of_doujinshi(doujinshi_id, "full_name_original", value)
+
+
+	def update_bold_name_of_doujinshi(self, doujinshi_id, value):
+		return self._update_column_of_doujinshi(doujinshi_id, "bold_name", value)
+
+
+	def update_bold_name_original_of_doujinshi(self, doujinshi_id, value):
+		return self._update_column_of_doujinshi(doujinshi_id, "bold_name_original", value)
+
+
+	def update_note_of_doujinshi(self, doujinshi_id, value):
+		return self._update_column_of_doujinshi(doujinshi_id, "note", value)
+
+
+	def update_path_of_doujinshi(self, doujinshi_id, value):
+		return self._update_column_of_doujinshi(doujinshi_id, "path", value)
+
+
+	# def get_count_of_#IMPLEMENT HERE"""
 		# Take a list of items as input
 		# Return a dict of items and their counts
 

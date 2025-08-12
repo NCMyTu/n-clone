@@ -1,0 +1,45 @@
+{
+    "id": 123,
+    "full_name": "Dummy Doujinshi no.2",
+    "bold_name": "Douji",
+    "full_name_original": "ダミー同人誌2号",
+    "bold_name_original": "同",
+    "path": "imgs",
+    "parodies": [
+        "dummy parody 2",
+        "dummy parody 4"
+    ],
+    "characters": [
+        "dummy character 3"
+    ],
+    "tags": [
+        "dummy character 1", "dummy character 10"
+    ],
+    "artists": [
+        "dummy artist 1",
+        "dummy artist 2",
+        "dummy artist 3",
+        "dummy artist 4",
+        "dummy artist 5"
+    ],
+    "groups": [
+        "dummy group 1",
+        "dummy group 2"
+    ],
+    "languages": [
+        "japanses",
+        "english"
+    ],
+    "page_order": [
+        "1.png",
+        "2.png",
+        "3.png",
+        "4.png",
+        "5.png",
+        "6.png",
+        "7.png",
+        "8.png",
+        "9.png"
+    ],
+    "note": null
+}

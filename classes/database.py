@@ -503,7 +503,7 @@ class Database:
 					status = self._insert_page(conn, cursor, doujinshi.id, page_file_name, order_number)
 					if status == Database_Status.FATAL:
 						conn.rollback()
-						return Database_Status.FATAL
+						return status
 
 					# Get the ID of the first inserted page (cover)
 					if order_number == 1:
@@ -810,7 +810,7 @@ class Database:
 				conn.rollback()
 				return Database_Status.FATAL
 			except:
-				conn.roll_back()
+				conn.rollback()
 				return Database_Status.FATAL
 
 
@@ -842,11 +842,18 @@ class Database:
 
 
 	def _get_count_of_values(self, table, values):
+		if not isinstance(values, (list, tuple)):
+			raise TypeError("values must be a list or tuple")
+
+		res = {} # Who knows?
+		if not values:
+			return res
+
 		value_count = {value: 0 for value in values}
 
 		placeholder = ",".join("?" for _ in values)  # e.g. ?, ?, ?
 		query = f"""
-			SELECT {table}.name, COUNT(*) AS count
+			SELECT {table}.name, COUNT(DISTINCT doujinshi_id) AS count
 			FROM doujinshi_{table}
 			JOIN {table} ON {table}.id = doujinshi_{table}.{table}_id
 			WHERE {table}.name in ({placeholder})

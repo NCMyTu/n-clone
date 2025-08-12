@@ -3,19 +3,26 @@ from pathlib import Path
 from typing import Optional
 
 class Doujinshi:
-	path_prefix = ''
+	# To concatenate with self.path (read from database)
+	PATH_PREFIX = '' 
+
+	
+	@classmethod
+	def set_path_prefix(cls, prefix):
+		cls.PATH_PREFIX = prefix
+
 
 	def __init__(self):
-		self.id = None
+		self.id: int = -1
 		self.path = ''
 
-		self.full_name: Optional[str] = None
-		self.bold_name: Optional[str] = None
-		self.full_name_original: Optional[str] = None
-		self.bold_name_original: Optional[str] = None
-		self.cover_page_file_name: Optional[str] = None # intended none
+		self.full_name = None
+		self.bold_name = None
+		self.full_name_original = None
+		self.bold_name_original = None
+		self.cover_page_file_name = None # intended none
 		self.added_at = None # pull from db
-		self.note: Optional[str] = None
+		self.note = None
 
 		self.parodies = []
 		self.characters = []
@@ -71,13 +78,13 @@ class Doujinshi:
 		return self
 
 
-	@classmethod
-	def set_path_prefix(cls, prefix):
-		cls.path_prefix = prefix
-
-
 	def reset(self):
 		self.__init__()
+
+
+	def construct_full_path_of_pages(self):
+		self.page_order = [Path(self.PATH_PREFIX, p).as_posix() for p in self.page_order]
+		self.cover_page_file_name = Path(self.PATH_PREFIX, self.page_order[0]).as_posix()
 
 
 	def load_from_json(self, json_path):
@@ -110,6 +117,7 @@ class Doujinshi:
 			self.languages = data["languages"]
 
 			self.page_order = data["page_order"]
+			self.cover_page_file_name = data["page_order"][0]
 		except KeyError as e:
 			self.reset()
 			print(f"Key doesnt exist. ERROR: {e}")
@@ -117,35 +125,81 @@ class Doujinshi:
 		return self
 
 
-	def strict_mode(self):
-		required_fields = {
-			"bold_name": "bold_name is missing",
-			"full_name_original": "full_name_original is missing",
-			"bold_name_original": "bold_name_original is missing",
-			"artists": "artists is missing or empty",
-			"groups": "groups is missing or empty",
-			"languages": "languages is missing or empty",
-			"page_order": "page_order is missing or empty",
-		}
+	def validate(self, user_warning=True):
+		warnings = []
+		errors = []
 
-		is_ok = True
-		for attr, warning in required_fields.items():
-			if not getattr(self, attr):
-				print(f"Doujinshi id #{self.id}, WARNING: {warning}")
-				is_ok = False
+		# Critical checks (no exceptions)
+		if not isinstance(self.id, int):
+			errors.append(f"Doujinshi id must be an int. Got {self.id!r} instead.")
+		if not isinstance(self.full_name, str) or not self.full_name.strip():
+			errors.append(f"full_name must be a non-empty string.")
+		if not isinstance(self.path, str) or not self.path.strip():
+			errors.append(f"path must be a non-empty string.")
 
-		if is_ok:
+		if errors:
+			print(f"Doujinshi #{getattr(self, 'id', '?')} ERRORS:")
+			for e in errors:
+				print(f"\t{e}")
+			return False
+
+		required_fields = [
+			("bold_name", False),
+			("full_name_original", False),
+			("bold_name_original", False),
+			("parodies", True),
+			("characters", True),
+			("tags", True),
+			("artists", True),
+			("groups", True),
+			("languages", True),
+			("page_order", True),
+			("path", False),
+			("cover_page_file_name", False)
+		]
+
+		for attr, can_be_a_list in required_fields:
+			value = getattr(self, attr)
+			if not value:
+				warnings.append(f"{attr} is missing or empty.")
+			else:
+				if can_be_a_list and isinstance(value, list):
+					for v in value:
+						if isinstance(v, str) and v != v.strip():
+							warnings.append(f"{attr}: {v!r} has leading/trailing spaces.")
+				else:
+					if isinstance(value, str) and value != value.strip():
+						warnings.append(f"{attr} has leading/trailing spaces.")
+
+		if "textless" in self.tags:
+			warnings.append("Consider moving \"textless\" from tags to languages.")
+
+		VALID_LANGUAGES = {"english", "japanese", "chinese", "textless"}
+		for lang in self.languages:
+			if lang.strip() not in VALID_LANGUAGES:
+				warnings.append(f"Unknown language '{lang}'.")
+
+		if not warnings:
 			return True
 
-		# Ask user to continue only if not ok
-		answer = input("Do you want to continue? Y/n\n\t>>> ").strip()
-		return answer.upper() == "Y"
+		print(f"Doujinshi #{self.id} WARNINGS:")
+		for w in warnings:
+			print(f"\t{w}")
+
+		if not user_warning:
+			return False
+
+		while True:
+			answer = input("Do you really want to continue despite warnings? Y/n\n\t> ")
+			if answer in ("Y", "n"):
+				return answer == "Y"
+			print("Please enter exactly 'Y' or 'n'.")
 
 
 	def print_info(self):
 		print("----------------------------------")
 		print(f"id: {self.id}")
-		print(f"path: {self.path}\n")
+		print(f"path: {Path(self.path).as_posix()}\n")
 		print(f"full_name: {self.full_name}")
 		print(f"bold_name: {self.bold_name}")
 		print(f"full_name_original: {self.full_name_original}")
@@ -157,7 +211,6 @@ class Doujinshi:
 		print(f"groups: {'\n\t' + '\n\t'.join(self.groups) if self.groups else ''}")
 		print(f"languages: {'\n\t' + '\n\t'.join(self.languages) if self.languages else ''}")
 		print(f"page_order: {'\n\t' + '\n\t'.join(self.page_order) if self.page_order else ''}")
-		print(f"cover_page_file_name: {self.cover_page_file_name}")
 		print(f"added_at: {self.added_at}")
 		print(f"note: {self.note}")
 		print("----------------------------------")
@@ -167,12 +220,11 @@ class Doujinshi:
 		with open(Path(path), "w", encoding="utf-8") as file:
 			json.dump({
 				"id": self.id,
-				"path": self.path,
-				"full": self.full_name,
+				"path": Path(self.path).as_posix(), # defensive at its best
+				"full_name": self.full_name,
 				"bold_name": self.bold_name,
 				"full_name_original": self.full_name_original,
 				"bold_name_original": self.bold_name_original,
-				"note": self.note,
 				"parodies": self.parodies,
 				"characters": self.characters,
 				"tags": self.tags,
@@ -183,6 +235,11 @@ class Doujinshi:
 				"note": self.note
 			}, file, ensure_ascii=False, indent=4)
 
+
 if __name__ == "__main__":
-	d = Doujinshi().load_from_json("../../doujin_data.json")
-	d.print_info()
+	doujinshi = [Doujinshi().load_from_json(f"../test/doujin_{i}.json") for i in range(1, 4)]
+	
+	for d in doujinshi:
+		d.print_info()
+
+	print(doujinshi[0].validate(False))

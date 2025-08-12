@@ -438,7 +438,7 @@ class Database:
 
 
 	def insert_doujinshi(self, doujinshi):
-		if not doujinshi.strict_mode():
+		if not doujinshi.validate():
 			return Database_Status.NON_FATAL
 
 		def insert_then_link(items, insert_fn, link_fn):

@@ -3,6 +3,7 @@ import sqlite3
 from enum import Enum, auto
 from doujinshi import Doujinshi
 
+
 # conn.rollback() calls might be excessive, but if you can, be explicit as much as possible.
 class Database_Status(Enum):
 	OK = auto()
@@ -150,16 +151,16 @@ class Database:
 
 
 	def _execute_insert(self, conn, cursor, table, column, value):
-		# Helper function to insert a value into a single-column table
+		# Helper function to insert a value into a single-column table.
 		# IMPORTANT: there is no commit and rollback in this function,
-		#            only handle them at the top most function
-		# IMPORTANT: remember to enable foreign_keys
+		# only handle them at the top most function.
+		# IMPORTANT: remember to enable foreign_keys.
 		if not value:
 			print(f"INSERT WHAT {table.upper()}?")
 			return Database_Status.FATAL
 
 		try:
-			# Check if the record already exists
+			# Check if the record already exists.
 			cursor.execute(
 				f"SELECT id FROM {table} WHERE {column} = ?;", 
 				(value,)
@@ -170,7 +171,7 @@ class Database:
 				print(f"Duplicate entry in table [{table}]: {value}. Insertion skipped")
 				return Database_Status.OK
 
-			# If not exists, insert
+			# If not exists, insert.
 			cursor.execute(
 				f"INSERT INTO {table} ({column}) VALUES (?);", 
 				(value,)
@@ -182,7 +183,7 @@ class Database:
 			print(f"FATAL: Cannot insert into [{table}]. ERROR: {e}")
 			return Database_Status.FATAL
 		except Exception as e:
-			# Who knows what can happens
+			# Who knows what can happen.
 			print(f"Unexpected exception from function [_execute_insert]. ERROR: {e}")
 			print(f"\ttable: {table}, column: {column}, value: {value}")
 			return Database_Status.FATAL
@@ -240,7 +241,7 @@ class Database:
 			cursor.execute("PRAGMA foreign_keys = ON;")
 
 			try:
-				# Check if the record already exists
+				# Check if the record already exists.
 				cursor.execute(
 					f"SELECT id FROM {table} WHERE {column} = ?;",
 					(value,)
@@ -251,7 +252,7 @@ class Database:
 					print(f"Duplicate entry in table [{table}]: {value}. Insertion skipped")
 					return Database_Status.OK
 
-				# If not exists, insert
+				# If not exists, insert.
 				cursor.execute(
 					f"INSERT INTO {table} ({column}) VALUES (?);",
 					(value,)
@@ -265,7 +266,7 @@ class Database:
 				print(f"FATAL: Cannot insert into [{table}]. ERROR: {e}")
 				return Database_Status.FATAL
 			except Exception as e:
-				# Who knows what can happens
+				# Who knows what can happen.
 				conn.rollback()
 				print(f"Unexpected exception from function [execute_insert]. ERROR: {e}")
 				print(f"\ttable: {table}, column: {column}, value: {value}")
@@ -298,8 +299,8 @@ class Database:
 
 	def _link_doujinshi_with_many(self, conn, cursor, join_table, table_to_link, doujinshi_id, value):
 		# IMPORTANT: there is no commit and rollback in this function,
-		#            only handle them at the top most function
-		# IMPORTANT: remember to enable foreign_keys
+		# only handle them at the top most function.
+		# IMPORTANT: remember to enable foreign_keys.
 		cursor.execute(
 			f"SELECT id FROM {table_to_link} WHERE name = ?",
 			(value,)
@@ -327,7 +328,7 @@ class Database:
 			print("Insertion skipped.")
 			return Database_Status.NON_FATAL
 		except Exception as e:
-			# Who knows what can happens
+			# Who knows what can happen.
 			print(f"Unexpected exception from function [_link_doujinshi_with_many]. ERROR: {e}")
 			return Database_Status.FATAL
 
@@ -388,8 +389,8 @@ class Database:
 		return self.link_doujinshi_with_many("doujinshi_language", "language", doujinshi_id, language)
 
 
-	def add_pages_to_doujinshi(self, doujinshi_id, page_order_list):
-		if not page_order_list:
+	def add_pages_to_doujinshi(self, doujinshi_id, page_order):
+		if not page_order:
 			print(f"INSERT WHAT PAGES?")
 			return Database_Status.NON_FATAL
 
@@ -398,7 +399,7 @@ class Database:
 			cursor.execute("PRAGMA foreign_keys = ON;")
 
 			try:
-				# Verify doujinshi exists
+				# Verify doujinshi exists.
 				cursor.execute(
 					"SELECT 1 FROM doujinshi WHERE id = ? LIMIT 1;",
 					(doujinshi_id,)
@@ -407,13 +408,13 @@ class Database:
 					print(f"Doujinshi #{doujinshi_id} not found. Cannot add pages.")
 					return Database_Status.NON_FATAL_DOUJINSHI_NOT_FOUND
 
-				# Remove existing pages first
+				# Remove existing pages first.
 				cursor.execute(
 					"DELETE FROM page WHERE doujinshi_id = ?;",
 					(doujinshi_id,)
 				)
 
-				for order_number, file_name in enumerate(page_order_list, start=1):
+				for order_number, file_name in enumerate(page_order, start=1):
 					if not file_name:
 						print(f"Empty file name for page #{order_number} of doujinshi #{doujinshi_id}.")
 						conn.rollback()
@@ -421,7 +422,7 @@ class Database:
 
 					cursor.execute(
 						"INSERT INTO page (doujinshi_id, file_name, order_number) VALUES (?, ?, ?);",
-						(doujinshi_id, file_name, order_number)
+						(doujinshi_id, Path(file_name).name, order_number)
 					)
 					print(f"Inserted page #{order_number} ({file_name}) for doujinshi #{doujinshi_id}")
 
@@ -448,7 +449,7 @@ class Database:
 					return False
 			return True
 
-		# utterly shitty spaghetti pepperoni ahead
+		# Utterly shitty spaghetti pepperoni ahead.
 		with sqlite3.connect(Path(self.path)) as conn:
 			cursor = conn.cursor()
 			cursor.execute("PRAGMA foreign_keys = ON;")
@@ -491,21 +492,21 @@ class Database:
 					(doujinshi.languages,   self._insert_language,  self._link_doujinshi_with_language)
 				]
 
-				# Run through each category and stop on FATAL
+				# Run through each category and stop on FATAL.
 				for items, insert_fn, link_fn in relations:
 					if not insert_then_link(items, insert_fn, link_fn):
 						conn.rollback()
 						return Database_Status.FATAL
 
-				# Insert pages
+				# Insert pages.
 				page_cover_id = None
 				for order_number, page_file_name in enumerate(doujinshi.page_order, start=1):
-					status = self._insert_page(conn, cursor, doujinshi.id, page_file_name, order_number)
+					status = self._insert_page(conn, cursor, doujinshi.id, Path(page_file_name).name, order_number)
 					if status == Database_Status.FATAL:
 						conn.rollback()
 						return status
 
-					# Get the ID of the first inserted page (cover)
+					# Get the ID of the first inserted page (cover).
 					if order_number == 1:
 						cursor.execute(
 							"SELECT id FROM page WHERE doujinshi_id = ? AND order_number = 1 LIMIT 1;",
@@ -515,7 +516,7 @@ class Database:
 						if row:
 							page_cover_id = row[0]
 
-				# Set cover_page_id if found
+				# Set cover_page_id if found.
 				if page_cover_id is not None:
 					cursor.execute(
 						"UPDATE doujinshi SET cover_page_id = ? WHERE id = ?;",
@@ -535,7 +536,7 @@ class Database:
 				conn.rollback()
 				print(f"Unexpected exception from function [insert_doujinshi]. ERROR: {e}")
 				return Database_Status.FATAL
-		# connection is still opening although using context manager. But it should be destroyed here. 
+		# Connection is still opening although using context manager. But it should be destroyed here. 
 		# Dumb design.
 
 
@@ -547,7 +548,7 @@ class Database:
 			cursor.execute("PRAGMA foreign_keys = ON;")
 			
 			try:
-				# Get the item's ID
+				# Get the item's ID.
 				cursor.execute(
 					f"SELECT id FROM {item_table} WHERE name = ?;",
 					(item_name,)
@@ -560,7 +561,7 @@ class Database:
 					return Database_Status.NON_FATAL_ITEM_NOT_FOUND
 				item_id = row[0]
 
-				# Step 2: Remove the link
+				# Step 2: Remove the link.
 				cursor.execute(
 					f"DELETE FROM {link_table} WHERE doujinshi_id = ? AND {item_table}_id = ?;",
 					(doujinshi_id, item_id)
@@ -627,7 +628,7 @@ class Database:
 			cursor.execute("PRAGMA foreign_keys = ON;")
 
 			try:
-				# Verify doujinshi exists
+				# Verify doujinshi exists.
 				cursor.execute(
 					"SELECT 1 FROM doujinshi WHERE id = ? LIMIT 1;",
 					(doujinshi_id,)
@@ -636,7 +637,6 @@ class Database:
 					print(f"Doujinshi #{doujinshi_id} not found. Cannot add pages.")
 					return Database_Status.NON_FATAL_DOUJINSHI_NOT_FOUND
 
-				# Remove existing pages first
 				cursor.execute(
 					"DELETE FROM page WHERE doujinshi_id = ?;",
 					(doujinshi_id,)
@@ -688,7 +688,7 @@ class Database:
 
 
 	def _get_doujinshi(self, conn, cursor, doujinshi_id, partial=False):
-	# IMPORTANT: handle foreign_keys, commit and rollback yourself
+	# IMPORTANT: handle foreign_keys, commit and rollback yourself.
 		def get_related(table, join_table):
 			cursor.execute(f"""
 				SELECT t.name
@@ -762,7 +762,6 @@ class Database:
 			doujinshi_id, data["path"],
 			data["full_name"], data["bold_name"],
 			data["full_name_original"], data["bold_name_original"],
-			data["cover_page_file_name"],
 			data["parodies"], data["characters"], data["tags"],
 			data["artists"], data["groups"],
 			data["languages"],
@@ -851,7 +850,7 @@ class Database:
 
 		value_count = {value: 0 for value in values}
 
-		placeholder = ",".join("?" for _ in values)  # e.g. ?, ?, ?
+		placeholder = ",".join("?" for _ in values)
 		query = f"""
 			SELECT {table}.name, COUNT(DISTINCT doujinshi_id) AS count
 			FROM doujinshi_{table}
@@ -904,7 +903,8 @@ if __name__ == "__main__":
 	db.insert_group("group_dummy")
 	db.insert_language("language_dummy")
 
-	d = Doujinshi().load_from_json("../../doujin_data.json")
+	d = Doujinshi().load_from_json("../tests/fake_data/doujinshi_0.json")
+	d.ready()
 	d.print_info()
 
 	is_fatal = db.insert_doujinshi(d)
@@ -924,24 +924,25 @@ if __name__ == "__main__":
 
 	d_batch = db.get_doujinshi_in_batch(25, 0)
 	for d in d_batch:
+		d.ready()
 		d.print_info() 
 
-	print(db.get_count_of_parodies(d_batch[0].parodies))
-	print(d_batch[0].characters)
-	print(db.get_count_of_characters(d_batch[0].characters))
-	print(db.get_count_of_tags(d_batch[0].tags))
-	print(db.get_count_of_artists(d_batch[0].artists))
-	print(db.get_count_of_groups(d_batch[0].groups))
-	print(db.get_count_of_languages(d_batch[0].languages))
-	old_artist_name = d_batch[0].artists[0]
-	print("old_artist_name: ", old_artist_name)
-	print(d_batch[0].artists)
+	# print(db.get_count_of_parodies(d_batch[0].parodies))
+	# print(d_batch[0].characters)
+	# print(db.get_count_of_characters(d_batch[0].characters))
+	# print(db.get_count_of_tags(d_batch[0].tags))
+	# print(db.get_count_of_artists(d_batch[0].artists))
+	# print(db.get_count_of_groups(d_batch[0].groups))
+	# print(db.get_count_of_languages(d_batch[0].languages))
+	# old_artist_name = d_batch[0].artists[0]
+	# print("old_artist_name: ", old_artist_name)
+	# print(d_batch[0].artists)
 
-	db.insert_artist("newly added artist name")
-	db.insert_artist("newly added artist name")
-	db.remove_artist_from_doujinshi(d_batch[0].id, d_batch[0].artists[0])
-	db.add_artist_to_doujinshi(d_batch[0].id, "newly added artist name")
+	# db.insert_artist("newly added artist name")
+	# db.insert_artist("newly added artist name")
+	# db.remove_artist_from_doujinshi(d_batch[0].id, d_batch[0].artists[0])
+	# db.add_artist_to_doujinshi(d_batch[0].id, "newly added artist name")
 	
-	d_batch = db.get_doujinshi_in_batch(25, 0)
-	print(db.get_count_of_artists(d_batch[0].artists))
-	print(db.get_count_of_artists([old_artist_name]))
+	# d_batch = db.get_doujinshi_in_batch(25, 0)
+	# print(db.get_count_of_artists(d_batch[0].artists))
+	# print(db.get_count_of_artists([old_artist_name]))

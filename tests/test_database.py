@@ -30,7 +30,7 @@ def sample_data():
 		"characters": ["character_1", "character_2", "character_3"],
 		"tags": [f"tag_{i}" for i in range(15)],
 		"artists": ["artist_1", "artist_2", "artist_3", "artist_4"],
-		"groups": ["group_1"],
+		"groups": ["group_1", "group_2"],
 		"languages": ["english", "textless"],
 		"_page_order": [f"1_{i}.jpg" for i in range(1, 31)],
 		"added_at": None,
@@ -135,17 +135,26 @@ def test_add_to_doujinshi(db, sample_doujinshi, add_method_name, insert_method_n
 	add_method = getattr(db, add_method_name)
 	insert_method = getattr(db, insert_method_name)
 
+	new_items = ["new_item_1", "NEW_ITEM_1", "newItem2"]
+
 	# Check return statuses
-	assert add_method(sample_doujinshi.id, "new_item") == Database_Status.NON_FATAL_ITEM_NOT_FOUND
-	assert insert_method("new_item") == Database_Status.OK
-	assert add_method(sample_doujinshi.id, "new_item") == Database_Status.OK
-	assert add_method(sample_doujinshi.id, "new_item") == Database_Status.NON_FATAL_DUPLICATE
-	assert add_method(-1, "new_item") == Database_Status.NON_FATAL_DOUJINSHI_NOT_FOUND
+	# Yes, those for loops need to be seperate like that to test "batch" operation
+	for item in new_items:
+		assert add_method(sample_doujinshi.id, item) == Database_Status.NON_FATAL_ITEM_NOT_FOUND
+	for item in new_items:
+		assert insert_method(item) == Database_Status.OK
+	for item in new_items:
+		assert add_method(sample_doujinshi.id, item) == Database_Status.OK
+	for item in new_items:
+		assert add_method(sample_doujinshi.id, item) == Database_Status.NON_FATAL_DUPLICATE
+	for item in new_items:
+		assert add_method(-1, item) == Database_Status.NON_FATAL_DOUJINSHI_NOT_FOUND
 
-	# Verify in actual doujinshi
+	# Verify again in the actual doujinshi
+	db = Database(path=db.path) # Open a new connection
 	d = db.get_doujinshi(sample_doujinshi.id, partial=False)
-	assert "new_item" in getattr(d, properti)
-
+	for item in new_items:
+		assert item in getattr(d, properti)
 
 
 @pytest.mark.parametrize("remove_method_name, insert_method_name, properti", [
@@ -162,16 +171,21 @@ def test_remove_from_doujinshi(db, sample_doujinshi, remove_method_name, insert_
 	remove_method = getattr(db, remove_method_name)
 	insert_method = getattr(db, insert_method_name)
 
-	item_to_remove = getattr(sample_doujinshi, properti)[0]
+	items_to_remove = getattr(sample_doujinshi, properti)
 
 	# Check return statuses
-	assert remove_method(sample_doujinshi.id, item_to_remove) == Database_Status.OK
-	assert remove_method(sample_doujinshi.id, "non-existent") == Database_Status.NON_FATAL_ITEM_NOT_FOUND
-	assert remove_method(-1, item_to_remove) == Database_Status.NON_FATAL_DOUJINSHI_NOT_FOUND
+	for item in ["non-existent-1", "NON-EXISTENT-1", "non_existent_1"]:
+		assert remove_method(sample_doujinshi.id, item) == Database_Status.NON_FATAL_ITEM_NOT_FOUND
+	for item in items_to_remove:
+		assert remove_method(sample_doujinshi.id, item) == Database_Status.OK
+	for item in items_to_remove:
+		assert remove_method(-1, item) == Database_Status.NON_FATAL_DOUJINSHI_NOT_FOUND
 	# Remove an item that doesn't belong to the doujinshi.
 	assert insert_method("new_item") == Database_Status.OK
 	assert remove_method(sample_doujinshi.id, "new_item") == Database_Status.NON_FATAL_NOT_LINKED
 
-	# Verify in actual doujinshi
+	# Verify again in the actual doujinshi
+	db = Database(path=db.path) # Open a new connection
 	d = db.get_doujinshi(sample_doujinshi.id, partial=False)
-	assert item_to_remove not in getattr(d, properti)
+	for item in items_to_remove:
+		assert item not in getattr(d, properti)

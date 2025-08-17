@@ -20,5 +20,7 @@ class Base(DeclarativeBase):
         """
         if not value or not value.strip():
             raise ValueError(f"{key} can't be blank or whitespace.")
+        if value != value.lower():
+            raise ValueError(f"{key} has uppercase letter.")
         normalized = re.sub(r"\s+", " ", value.strip())
         return normalized

@@ -21,3 +21,4 @@
 - [ ] Docs
 - [ ] Example
 - [ ] Tests
+- [ ] CHeck if WITHOUT ROWID in many-to-many tables actually speeds things up

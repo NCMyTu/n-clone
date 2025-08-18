@@ -11,11 +11,11 @@ class DatabaseLogger:
 		self.logger.setLevel(logging.DEBUG)
 
 		if not file_format:
-			self.file_format = "%(levelname)s %(asctime)s %(name)s | func: %(funcName)s | %(message)s"
+			self.file_format = "%(levelname)s | %(asctime)s %(name)s | func: %(funcName)s | %(message)s"
 		else:
 			self.file_format = file_format
 		if not stream_format:
-			self.stream_format = "%(levelname)s %(name)s | func: %(funcName)s | %(message)s"
+			self.stream_format = "%(levelname)s | %(name)s | func: %(funcName)s | %(message)s"
 		else:
 			self.stream_format = stream_format
 

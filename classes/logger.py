@@ -59,9 +59,7 @@ class DatabaseLogger:
 				f"{ret_name} | [doujinshi] #{doujinshi_id} has been added new value: [{model.__tablename__}] {value!r}.",
 				stacklevel=3
 			)
-			return
-
-		if return_status == DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND:
+		elif return_status == DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND:
 			if model == Doujinshi:
 				self.logger.info(f"{ret_name} | [doujinshi] #{doujinshi_id} doesn't exist.", stacklevel=3)
 			else:
@@ -71,9 +69,40 @@ class DatabaseLogger:
 				)
 		elif return_status == DatabaseStatus.NON_FATAL_ITEM_DUPLICATE:
 			self.logger.info(
-				f"{ret_name} | [doujinshi] #{doujinshi_id} already had value: [{model.__tablename__}] {value!r}.",
+				f"{ret_name} | [doujinshi] #{doujinshi_id} already had: [{model.__tablename__}] {value!r}.",
 				stacklevel=3
 			)
+		elif return_status == DatabaseStatus.FATAL:
+			self.logger.error(
+				f"{ret_name} | Unexpected exception.\n{type(exception).__name__}: {exception}",
+				stacklevel=3
+			)
+
+
+	def log_remove_item_from_doujinshi(self, return_status, model, value, doujinshi_id=None, exception=None):
+		ret_name = return_status.name
+
+		if return_status == DatabaseStatus.OK:
+			# Removals are rare or corrective actions ,
+			# log them at WARNING to make them stand out
+			self.logger.warning(
+				f"{ret_name} | [doujinshi] #{doujinshi_id} has removed: [{model.__tablename__}] {value!r}.",
+				stacklevel=3
+			)
+		elif return_status == DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND:
+			if model == Doujinshi:
+				self.logger.info(f"{ret_name} | [doujinshi] #{doujinshi_id} doesn't exist.", stacklevel=3)
+			else:
+				if not doujinshi_id:
+					self.logger.info(
+						f"{ret_name} | [{model.__tablename__}] doesn't have value: {value!r}.",
+						stacklevel=3
+					)
+				else:
+					self.logger.info(
+						f"{ret_name} | [doujinshi] #{doujinshi_id} doesn't have value: [{model.__tablename__}] {value!r}.",
+						stacklevel=3
+					)
 		elif return_status == DatabaseStatus.FATAL:
 			self.logger.error(
 				f"{ret_name} | Unexpected exception.\n{type(exception).__name__}: {exception}",

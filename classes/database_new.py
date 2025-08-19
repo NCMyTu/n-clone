@@ -74,7 +74,8 @@ class DatabaseManager:
 
 	def _insert_item(self, model, value):
 		"""
-		Insert a new parody, character, tag, artist, group, or language by name.
+		Helper function for inserting an item (e.g., parody, character) into the database.
+		Use insert_doujinshi, insert_character, etc. instead.
 
 		Returns:
 			- On success: DatabaseStatus.OK
@@ -129,6 +130,15 @@ class DatabaseManager:
 
 
 	def _add_item_to_doujinshi(self, doujinshi_id, model, relation_name, value):
+		"""
+		Helper function for adding an item (e.g., parody, character) to a Doujinshi.
+		Use add_parody_to_doujinshi, add_character_to_doujinshi, etc. instead.
+
+		Returns:
+			- On success: DatabaseStatus.OK
+			- On failure: DatabaseStatus.NON_FATAL_ITEM_DUPLICATE,
+				DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND or DatabaseStatus.FATAL
+		"""
 		with self.session() as session:
 			statement = select(Doujinshi).where(Doujinshi.id == doujinshi_id)
 			doujinshi = session.scalar(statement)
@@ -172,6 +182,14 @@ class DatabaseManager:
 
 
 	def _remove_item_from_doujinshi(self, doujinshi_id, model, relation_name, value):
+		"""
+		Helper function for removing an item (e.g., parody, character) from a Doujinshi.
+		Use remove_parody_from_doujinshi, remove_character_from_doujinshi, etc. instead.
+
+		Returns:
+			- On success: DatabaseStatus.OK
+			- On failure: DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND or DatabaseStatus.FATAL
+		"""
 		with self.session() as session:
 			statement = select(Doujinshi).where(Doujinshi.id == doujinshi_id)
 			doujinshi = session.scalar(statement)

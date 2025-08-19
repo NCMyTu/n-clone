@@ -1,4 +1,3 @@
-# TODO: implement def execute_raw_sql(self, query, params)
 from __future__ import annotations
 import logging
 from typing import List, Optional
@@ -73,24 +72,6 @@ class DatabaseManager:
 			return doujinshi
 
 
-	def insert_doujinshi(self, doujinshi_id, full_name, path):
-		# TODO: use self.logger
-		with self.session() as session:
-			try:
-				d = Doujinshi(id=doujinshi_id, full_name=full_name, path=path)
-				session.add(d)
-				session.commit()
-			except IntegrityError as e:
-				self.logger.logger.info(f"[doujinshi] #{doujinshi_id} already existed.")
-				return DatabaseStatus.NON_FATAL_ITEM_DUPLICATE
-			except Exception as e:
-				# self.logger.logger.error(f"{doujinshi_id} already existed.")
-				return DatabaseStatus.FATAL
-			else:
-				self.logger.logger.info(f"{doujinshi_id} inserted.")
-				return DatabaseStatus.OK
-
-
 	def _insert_item(self, model, value):
 		"""
 		Insert a new parody, character, tag, artist, group, or language by name.
@@ -127,6 +108,24 @@ class DatabaseManager:
 		return self._insert_item(Group, value)
 	def insert_language(self, value):
 		return self._insert_item(Language, value)
+
+
+	def insert_doujinshi(self, doujinshi_id, full_name, path):
+		# TODO: use self.logger
+		with self.session() as session:
+			try:
+				d = Doujinshi(id=doujinshi_id, full_name=full_name, path=path)
+				session.add(d)
+				session.commit()
+			except IntegrityError as e:
+				self.logger.logger.info(f"[doujinshi] #{doujinshi_id} already existed.")
+				return DatabaseStatus.NON_FATAL_ITEM_DUPLICATE
+			except Exception as e:
+				# self.logger.logger.error(f"{doujinshi_id} already existed.")
+				return DatabaseStatus.FATAL
+			else:
+				self.logger.logger.info(f"{doujinshi_id} inserted.")
+				return DatabaseStatus.OK
 
 
 	def _add_item_to_doujinshi(self, doujinshi_id, model, relation_name, value):
@@ -170,3 +169,71 @@ class DatabaseManager:
 		return self._add_item_to_doujinshi(doujinshi_id, Group, "groups", value)
 	def add_language_to_doujinshi(self, doujinshi_id, value):
 		return self._add_item_to_doujinshi(doujinshi_id, Language, "languages", value)
+
+
+	def _remove_item_from_doujinshi(self, doujinshi_id, model, relation_name, value):
+		with self.session() as session:
+			statement = select(Doujinshi).where(Doujinshi.id == doujinshi_id)
+			doujinshi = session.scalar(statement)
+			if not doujinshi:
+				return_status = DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND
+				self.logger.log_remove_item_from_doujinshi(return_status, Doujinshi, value, doujinshi_id)
+				return return_status
+
+			statement = select(model).where(model.name == value)
+			model_to_remove = session.scalar(statement)
+			if not model_to_remove:
+				self.logger.log_remove_item_from_doujinshi(DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND, model, value)
+				return DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND
+
+			try:
+				model_list = getattr(doujinshi, relation_name)
+
+				if model_to_remove not in model_list:
+					self.logger.log_remove_item_from_doujinshi(DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND, model, value, doujinshi_id)
+					return DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND
+
+				model_list.remove(model_to_remove)
+				session.commit()
+			except Exception as e:
+				self.logger.log_remove_item_from_doujinshi(DatabaseStatus.FATAL, model, value, doujinshi_id, e)
+				return DatabaseStatus.FATAL
+			else:
+				self.logger.log_remove_item_from_doujinshi(DatabaseStatus.OK, model, value, doujinshi_id)
+				return DatabaseStatus.OK
+
+
+	def remove_parody_from_doujinshi(self, doujinshi_id, value):
+		return self._remove_item_from_doujinshi(doujinshi_id, Parody, "parodies", value)
+	def remove_character_from_doujinshi(self, doujinshi_id, value):
+		return self._remove_item_from_doujinshi(doujinshi_id, Character, "characters", value)
+	def remove_tag_from_doujinshi(self, doujinshi_id, value):
+		return self._remove_item_from_doujinshi(doujinshi_id, Tag, "tags", value)
+	def remove_artist_from_doujinshi(self, doujinshi_id, value):
+		return self._remove_item_from_doujinshi(doujinshi_id, Artist, "artists", value)
+	def remove_group_from_doujinshi(self, doujinshi_id, value):
+		return self._remove_item_from_doujinshi(doujinshi_id, Group, "groups", value)
+	def remove_language_from_doujinshi(self, doujinshi_id, value):
+		return self._remove_item_from_doujinshi(doujinshi_id, Language, "languages", value)
+
+
+# def remove_all_pages_from_doujinshi(self, doujinshi_id):
+# def remove_doujinshi(self, doujinshi_id):
+
+
+# def execute_raw_sql(self, query, params)
+# def add_pages_to_doujinshi(self, doujinshi_id, page_order_list):
+# def get_doujinshi(self, doujinshi_id, partial=False):
+# def get_doujinshi_in_batch(self, batch_size, offset, partial=False):
+# def update_full_name_of_doujinshi(self, doujinshi_id, value):
+# def update_full_name_original_of_doujinshi(self, doujinshi_id, value):
+# def update_bold_name_of_doujinshi(self, doujinshi_id, value):
+# def update_bold_name_original_of_doujinshi(self, doujinshi_id, value):
+# def update_note_of_doujinshi(self, doujinshi_id, value):
+# def update_path_of_doujinshi(self, doujinshi_id, value):
+# def get_count_of_parodies(self, doujinshi_id, values):
+# def get_count_of_characters(self, doujinshi_id, values):
+# def get_count_of_tags(self, doujinshi_id, values):
+# def get_count_of_artists(self, doujinshi_id, values):
+# def get_count_of_groups(self, doujinshi_id, values):
+# def get_count_of_languages(self, doujinshi_id, values):

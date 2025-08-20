@@ -4,12 +4,14 @@ from typing import List, Optional
 
 from .database_status import DatabaseStatus
 from .logger import DatabaseLogger
-from .models import Artist, Base, Character, Doujinshi, Group, Language, Parody, Tag
+from .models import Artist, Base, Character, Doujinshi, Group, Language, Parody, Tag, Page
+from .utils import validate_doujinshi
 from sqlalchemy import create_engine, event, select
 from sqlalchemy import Integer, Text, DateTime
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker, validates, selectinload, joinedload
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from types import SimpleNamespace
 
 
 class DatabaseManager:
@@ -60,6 +62,7 @@ class DatabaseManager:
 					selectinload(Doujinshi.artists),
 					selectinload(Doujinshi.groups),
 					selectinload(Doujinshi.languages),
+					selectinload(Doujinshi.pages)
 				)
 				.where(Doujinshi.id == doujinshi_id)
 			)
@@ -111,21 +114,64 @@ class DatabaseManager:
 		return self._insert_item(Language, value)
 
 
-	def insert_doujinshi(self, doujinshi_id, full_name, path):
+	def insert_doujinshi(self, doujinshi, user_prompt=True):
+		# doujinshi: a dict. refer to src/utils/create_empty_doujinshi
+		print("INFO | DatabaseManager | func: insert_doujinshi")
 		# TODO: use self.logger
+		if not validate_doujinshi(doujinshi, user_prompt=user_prompt):
+			print("validation failed. insertion skip.")
+			return DatabaseStatus.NON_FATAL_VALIDATION_FAILED
+
+		data = SimpleNamespace(**doujinshi)
+
 		with self.session() as session:
+			statement = select(Doujinshi.id).where(Doujinshi.id == data.id)
+			if session.scalar(statement):
+				print("DOUJINSHI ALREADY EXISTED")
+				return DatabaseStatus.NON_FATAL_ITEM_DUPLICATE
+
 			try:
-				d = Doujinshi(id=doujinshi_id, full_name=full_name, path=path)
+				d = Doujinshi(
+					id=data.id,
+					full_name=data.full_name, full_name_original=data.full_name_original,
+					pretty_name=data.pretty_name, pretty_name_original=data.pretty_name_original,
+					note=data.note,
+					path=data.path,
+				)
+
+				for parody_name in data.parodies:
+					statement = select(Parody).where(Parody.name == parody_name)
+					parody = session.scalar(statement)
+
+					if parody:
+						print(f"parody {parody_name} existed. insertion skipped")
+						d.parodies.append(parody)
+						continue
+
+					print("here")
+					new_parody = Parody(name=parody_name)
+					session.add(new_parody)
+					print(f"added {parody_name}")
+					d.parodies.append(new_parody)
+					print(f"added {parody_name} to d.parodies")
+
+				# characters=[Character(name=c) for c in d.characters],
+				# tags=[Tag(name=t) for t in d.tags],
+				# artists=[Artist(name=a) for a in d.artists],
+				# groups=[Group(name=g) for g in d.groups],
+				# languages=[Language(name=l) for l in d.languages],
+				# pages=[Page(filename=f, order_number=i) for i, f in enumerate(d.pages, start=1)]
+
 				session.add(d)
 				session.commit()
 			except IntegrityError as e:
-				self.logger.logger.info(f"[doujinshi] #{doujinshi_id} already existed.")
+				self.logger.logger.info(f"[doujinshi] #{d.id} already existed. {e}")
 				return DatabaseStatus.NON_FATAL_ITEM_DUPLICATE
 			except Exception as e:
-				# self.logger.logger.error(f"{doujinshi_id} already existed.")
+				self.logger.logger.info(f"insert_doujinshi UNEXPECTED EXCEPTION {e}")
 				return DatabaseStatus.FATAL
 			else:
-				self.logger.logger.info(f"{doujinshi_id} inserted.")
+				self.logger.logger.info(f"{d.id} inserted.")
 				return DatabaseStatus.OK
 
 
@@ -235,7 +281,7 @@ class DatabaseManager:
 		return self._remove_item_from_doujinshi(doujinshi_id, Language, "languages", value)
 
 
-# def remove_all_pages_from_doujinshi(self, doujinshi_id):
+# def remove_all_pages_from_doujinshi(self, doujinshi_id): # simply call add_pages_to_doujinshi() with an empty list
 # def remove_doujinshi(self, doujinshi_id):
 
 

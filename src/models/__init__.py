@@ -6,3 +6,4 @@ from .tag import Tag
 from .artist import Artist
 from .group import Group
 from .language import Language
+from .page import Page

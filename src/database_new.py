@@ -12,6 +12,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker, validates, selectinload, joinedload
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from types import SimpleNamespace
+import pathlib
 
 
 class DatabaseManager:
@@ -225,6 +226,7 @@ class DatabaseManager:
 				self.logger.log_add_item_to_doujinshi(DatabaseStatus.OK, model, value, doujinshi_id)
 				return DatabaseStatus.OK
 
+
 	def _set_pages_to_doujinshi(self, doujinshi_id, pages=None):
 		# IMPORTANT: this does 2 things:
 			# remove old pages
@@ -334,20 +336,68 @@ class DatabaseManager:
 		return self._set_pages_to_doujinshi(doujinshi_id, None)
 
 
-# def remove_doujinshi(self, doujinshi_id):
+	def remove_doujinshi(self, doujinshi_id):
+		with self.session() as session:
+			statement = select(Doujinshi).where(Doujinshi.id == doujinshi_id)
+			doujinshi = session.scalar(statement)
+
+			if not doujinshi:
+				self.logger.log_remove_doujinshi(DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND, doujinshi_id)
+				return DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND
+
+			try:
+				session.delete(doujinshi)
+				session.commit()
+			except Exception as e:
+				self.logger.log_remove_doujinshi(DatabaseStatus.FATAL, doujinshi_id, exception=e)
+				return DatabaseStatus.FATAL
+			else:
+				self.logger.log_remove_doujinshi(DatabaseStatus.OK, doujinshi_id)
+				return DatabaseStatus.OK
+
+
+	def _update_column_of_doujinshi(self, doujinshi_id, column_name, value):
+		with self.session() as session:
+			statement = select(Doujinshi).where(Doujinshi.id == doujinshi_id)
+			doujinshi = session.scalar(statement)
+
+			if not doujinshi:
+				self.logger.log_update_column(DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND, column_name, value, doujinshi_id)
+				return DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND
+
+			try:
+				setattr(doujinshi, column_name, value)
+				session.commit()
+			except IntegrityError as e:
+				self.logger.log_update_column(DatabaseStatus.NON_FATAL_ITEM_DUPLICATE, column_name, value, doujinshi_id, exception=e)
+				return DatabaseStatus.NON_FATAL_ITEM_DUPLICATE
+			except Exception as e:
+				self.logger.log_update_column(DatabaseStatus.FATAL, column_name, value, doujinshi_id, exception=e)
+				return DatabaseStatus.FATAL
+			else:
+				self.logger.log_update_column(DatabaseStatus.OK, column_name, value, doujinshi_id)
+				return DatabaseStatus.OK
+	
+
+	def update_full_name_of_doujinshi(self, doujinshi_id, value):
+		return self._update_column_of_doujinshi(doujinshi_id, "full_name", value)
+	def update_full_name_original_of_doujinshi(self, doujinshi_id, value):
+		return self._update_column_of_doujinshi(doujinshi_id, "full_name_original", value)
+	def update_pretty_name_of_doujinshi(self, doujinshi_id, value):
+		return self._update_column_of_doujinshi(doujinshi_id, "pretty_name", value)
+	def update_pretty_name_original_of_doujinshi(self, doujinshi_id, value):
+		return self._update_column_of_doujinshi(doujinshi_id, "pretty_name_original", value)
+	def update_note_of_doujinshi(self, doujinshi_id, value):
+		return self._update_column_of_doujinshi(doujinshi_id, "note", value)
+	def update_path_of_doujinshi(self, doujinshi_id, value):
+		return self._update_column_of_doujinshi(doujinshi_id, "path", pathlib.Path(value).as_posix())
 
 
 # def execute_raw_sql(self, query, params)
 # def get_doujinshi_in_batch(self, batch_size, offset, partial=False):
-# def update_full_name_of_doujinshi(self, doujinshi_id, value):
-# def update_full_name_original_of_doujinshi(self, doujinshi_id, value):
-# def update_bold_name_of_doujinshi(self, doujinshi_id, value):
-# def update_bold_name_original_of_doujinshi(self, doujinshi_id, value):
-# def update_note_of_doujinshi(self, doujinshi_id, value):
-# def update_path_of_doujinshi(self, doujinshi_id, value):
-# def get_count_of_parodies(self, doujinshi_id, values):
-# def get_count_of_characters(self, doujinshi_id, values):
-# def get_count_of_tags(self, doujinshi_id, values):
-# def get_count_of_artists(self, doujinshi_id, values):
-# def get_count_of_groups(self, doujinshi_id, values):
-# def get_count_of_languages(self, doujinshi_id, values):
+# def get_count_of_parodies(self, values):
+# def get_count_of_characters(self, values):
+# def get_count_of_tags(self, values):
+# def get_count_of_artists(self, values):
+# def get_count_of_groups(self, values):
+# def get_count_of_languages(self, values):

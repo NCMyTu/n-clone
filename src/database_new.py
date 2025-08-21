@@ -114,10 +114,31 @@ class DatabaseManager:
 		return self._insert_item(Language, value)
 
 
+	def _add_and_link_item(self, session, doujinshi_model, relation_name, Model, item_names):
+		existing_models = {
+			model.name: model for model in session.scalars(
+				select(Model).where(Model.name.in_(item_names))
+		)}
+
+		tbl_name = Model.__tablename__
+		for name in item_names:
+			model = existing_models.get(name)
+
+			if model:
+				print(f"[{tbl_name}] already has value: {name!r}")
+			else:
+				model = Model(name=name)
+				session.add(model)
+				print(f"[{tbl_name}] created: {name!r}")
+
+			getattr(doujinshi_model, relation_name).append(model)
+			print(f"Linked [{tbl_name}] {name!r} <---> [doujinshi] #{doujinshi_model.id}")
+
+
 	def insert_doujinshi(self, doujinshi, user_prompt=True):
+		# TODO: use self.logger
 		# doujinshi: a dict. refer to src/utils/create_empty_doujinshi
 		print("INFO | DatabaseManager | func: insert_doujinshi")
-		# TODO: use self.logger
 		if not validate_doujinshi(doujinshi, user_prompt=user_prompt):
 			print("validation failed. insertion skip.")
 			return DatabaseStatus.NON_FATAL_VALIDATION_FAILED
@@ -127,7 +148,7 @@ class DatabaseManager:
 		with self.session() as session:
 			statement = select(Doujinshi.id).where(Doujinshi.id == data.id)
 			if session.scalar(statement):
-				print("DOUJINSHI ALREADY EXISTED")
+				print("DOUJINSHI ALREADY EXISTS")
 				return DatabaseStatus.NON_FATAL_ITEM_DUPLICATE
 
 			try:
@@ -138,34 +159,26 @@ class DatabaseManager:
 					note=data.note,
 					path=data.path,
 				)
-
-				for parody_name in data.parodies:
-					statement = select(Parody).where(Parody.name == parody_name)
-					parody = session.scalar(statement)
-
-					if parody:
-						print(f"parody {parody_name} existed. insertion skipped")
-						d.parodies.append(parody)
-						continue
-
-					print("here")
-					new_parody = Parody(name=parody_name)
-					session.add(new_parody)
-					print(f"added {parody_name}")
-					d.parodies.append(new_parody)
-					print(f"added {parody_name} to d.parodies")
-
-				# characters=[Character(name=c) for c in d.characters],
-				# tags=[Tag(name=t) for t in d.tags],
-				# artists=[Artist(name=a) for a in d.artists],
-				# groups=[Group(name=g) for g in d.groups],
-				# languages=[Language(name=l) for l in d.languages],
-				# pages=[Page(filename=f, order_number=i) for i, f in enumerate(d.pages, start=1)]
-
 				session.add(d)
+
+				relations = [
+					("parodies", Parody, data.parodies),
+					("characters", Character, data.characters),
+					("tags", Tag, data.tags),
+					("artists", Artist, data.artists),
+					("groups", Group, data.groups),
+					("languages", Language, data.languages),
+				]
+				for rel_name, Model, values in relations:
+					self._add_and_link_item(session, d, rel_name, Model, values)
+
+				# Add pages
+				for i, filename in enumerate(data.pages, start=1):
+					d.pages.append(Page(filename=filename, order_number=i))
+
 				session.commit()
 			except IntegrityError as e:
-				self.logger.logger.info(f"[doujinshi] #{d.id} already existed. {e}")
+				self.logger.logger.info(f"[doujinshi] #{d.id} already exists. {e}")
 				return DatabaseStatus.NON_FATAL_ITEM_DUPLICATE
 			except Exception as e:
 				self.logger.logger.info(f"insert_doujinshi UNEXPECTED EXCEPTION {e}")
@@ -212,6 +225,42 @@ class DatabaseManager:
 				self.logger.log_add_item_to_doujinshi(DatabaseStatus.OK, model, value, doujinshi_id)
 				return DatabaseStatus.OK
 
+	def _set_pages_to_doujinshi(self, doujinshi_id, pages=None):
+		# IMPORTANT: this does 2 things:
+			# remove old pages
+			# then, add new ones.
+		with self.session() as session:
+			statement = select(Doujinshi).where(Doujinshi.id == doujinshi_id)
+			doujinshi = session.scalar(statement)
+			if not doujinshi:
+				self.logger.log_add_remove_pages(DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND, doujinshi_id)
+				return DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND
+
+			try:
+				# Remove old pages.
+				doujinshi.pages.clear()
+
+				if not pages:
+					# analogous to remove
+					session.commit()
+					self.logger.log_add_remove_pages(DatabaseStatus.OK, doujinshi_id, mode="remove")
+					return DatabaseStatus.OK
+
+				# 2. Add new pages with correct order
+				for i, filename in enumerate(pages, start=1):
+					doujinshi.pages.append(Page(filename=filename, order_number=i))
+
+				session.commit()
+			except IntegrityError as e:
+				self.logger.log_add_remove_pages(DatabaseStatus.NON_FATAL_ITEM_DUPLICATE, doujinshi_id)
+				return DatabaseStatus.NON_FATAL_ITEM_DUPLICATE
+			except Exception as e:
+				self.logger.log_add_remove_pages(DatabaseStatus.FATAL, doujinshi_id, exception=e)
+				return DatabaseStatus.FATAL
+			else:
+				self.logger.log_add_remove_pages(DatabaseStatus.OK, doujinshi_id, mode="add")
+				return DatabaseStatus.OK
+
 
 	def add_parody_to_doujinshi(self, doujinshi_id, value):
 		return self._add_item_to_doujinshi(doujinshi_id, Parody, "parodies", value)
@@ -225,6 +274,8 @@ class DatabaseManager:
 		return self._add_item_to_doujinshi(doujinshi_id, Group, "groups", value)
 	def add_language_to_doujinshi(self, doujinshi_id, value):
 		return self._add_item_to_doujinshi(doujinshi_id, Language, "languages", value)
+	def add_pages_to_doujinshi(self, doujinshi_id, pages):
+		return self._set_pages_to_doujinshi(doujinshi_id, pages)
 
 
 	def _remove_item_from_doujinshi(self, doujinshi_id, model, relation_name, value):
@@ -279,15 +330,14 @@ class DatabaseManager:
 		return self._remove_item_from_doujinshi(doujinshi_id, Group, "groups", value)
 	def remove_language_from_doujinshi(self, doujinshi_id, value):
 		return self._remove_item_from_doujinshi(doujinshi_id, Language, "languages", value)
+	def remove_pages_from_doujinshi(self, doujinshi_id):
+		return self._set_pages_to_doujinshi(doujinshi_id, None)
 
 
-# def remove_all_pages_from_doujinshi(self, doujinshi_id): # simply call add_pages_to_doujinshi() with an empty list
 # def remove_doujinshi(self, doujinshi_id):
 
 
 # def execute_raw_sql(self, query, params)
-# def add_pages_to_doujinshi(self, doujinshi_id, page_order_list):
-# def get_doujinshi(self, doujinshi_id, partial=False):
 # def get_doujinshi_in_batch(self, batch_size, offset, partial=False):
 # def update_full_name_of_doujinshi(self, doujinshi_id, value):
 # def update_full_name_original_of_doujinshi(self, doujinshi_id, value):

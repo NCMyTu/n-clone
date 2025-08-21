@@ -33,6 +33,7 @@ def create_empty_doujinshi():
 
 
 def validate_doujinshi(doujinshi, user_prompt=True):
+	# TODO: path must be in posix format
 	errors = []
 	warnings = []
 

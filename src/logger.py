@@ -40,10 +40,8 @@ class DatabaseLogger:
 				f"{ret_name} | [{model.__tablename__}] has been inserted into new value: {value!r}.",
 				stacklevel=3
 			)
-			return
-
-		if return_status == DatabaseStatus.NON_FATAL_ITEM_DUPLICATE:
-			self.logger.info(f"{ret_name} | [{model.__tablename__}] already had value: {value!r}.", stacklevel=3)
+		elif return_status == DatabaseStatus.NON_FATAL_ITEM_DUPLICATE:
+			self.logger.info(f"{ret_name} | [{model.__tablename__}] already has value: {value!r}.", stacklevel=3)
 		elif return_status == DatabaseStatus.FATAL:
 			self.logger.error(
 				f"{ret_name} | Unexpected exception.\n{type(exception).__name__}: {exception}", 
@@ -69,7 +67,7 @@ class DatabaseLogger:
 				)
 		elif return_status == DatabaseStatus.NON_FATAL_ITEM_DUPLICATE:
 			self.logger.info(
-				f"{ret_name} | [doujinshi] #{doujinshi_id} already had: [{model.__tablename__}] {value!r}.",
+				f"{ret_name} | [doujinshi] #{doujinshi_id} already has: [{model.__tablename__}] {value!r}.",
 				stacklevel=3
 			)
 		elif return_status == DatabaseStatus.FATAL:
@@ -103,6 +101,32 @@ class DatabaseLogger:
 						f"{ret_name} | [doujinshi] #{doujinshi_id} doesn't have value: [{model.__tablename__}] {value!r}.",
 						stacklevel=3
 					)
+		elif return_status == DatabaseStatus.FATAL:
+			self.logger.error(
+				f"{ret_name} | Unexpected exception.\n{type(exception).__name__}: {exception}",
+				stacklevel=3
+			)
+
+
+	def log_add_remove_pages(self, return_status, doujinshi_id, mode=None, exception=None):
+		# mode: "remove", "add" or None
+		ret_name = return_status.name
+
+		if return_status == DatabaseStatus.OK:
+			if mode == "add":
+				self.logger.info(
+					f"{ret_name} | [doujinshi] #{doujinshi_id} has been added new pages.",
+					stacklevel=3
+				)
+			elif mode == "remove":
+				self.logger.warning(
+					f"{ret_name} | [doujinshi] #{doujinshi_id} has been removed all its pages.",
+					stacklevel=3
+				)
+		elif return_status == DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND:
+			self.logger.info(f"{ret_name} | [doujinshi] #{doujinshi_id} doesn't exist.", stacklevel=3)
+		elif return_status == DatabaseStatus.NON_FATAL_ITEM_DUPLICATE:
+			self.logger.info(f"{ret_name} | [page] likely has duplicate filename or order_number.", stacklevel=3)
 		elif return_status == DatabaseStatus.FATAL:
 			self.logger.error(
 				f"{ret_name} | Unexpected exception.\n{type(exception).__name__}: {exception}",

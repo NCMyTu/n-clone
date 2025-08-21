@@ -4,9 +4,13 @@ from typing import List, Optional
 
 from .database_status import DatabaseStatus
 from .logger import DatabaseLogger
-from .models import Artist, Base, Character, Doujinshi, Group, Language, Parody, Tag, Page
+from .models import Artist, Base, Character, Doujinshi, Group, Language, Parody, Tag, Page, many_to_many_tables
+from .models.many_to_many_tables import (
+	doujinshi_language, doujinshi_circle, doujinshi_artist,
+	doujinshi_tag, doujinshi_character, doujinshi_parody
+)
 from .utils import validate_doujinshi
-from sqlalchemy import create_engine, event, select
+from sqlalchemy import create_engine, event, select, func
 from sqlalchemy import Integer, Text, DateTime
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker, validates, selectinload, joinedload
@@ -393,11 +397,39 @@ class DatabaseManager:
 		return self._update_column_of_doujinshi(doujinshi_id, "path", pathlib.Path(value).as_posix())
 
 
+	def _get_count_by_name(self, model, many_to_many_table, col_to_join, values):
+		if not values:
+			return {}
+
+		with self.session() as session:
+			try:
+				statement = (
+					select(model.name, func.count("*"))
+					.select_from(many_to_many_table)
+					.join(model, model.id == col_to_join)
+					.where(model.name.in_(values))
+					.group_by(model.name)
+				)
+				count_dict = dict(session.execute(statement).all())
+
+				return {name: count_dict.get(name, 0) for name in values}
+			except Exception as e:
+				print(f"Unexpected exception: {e}")
+
+
+	def get_count_of_parodies(self, values):
+		return self._get_count_by_name(Parody, doujinshi_parody, doujinshi_parody.c.parody_id, values)
+	def get_count_of_characters(self, values):
+		return self._get_count_by_name(Character, doujinshi_character, doujinshi_character.c.character_id,values)
+	def get_count_of_tags(self, values):
+		return self._get_count_by_name(Tag, doujinshi_tag, doujinshi_tag.c.tag_id,values)
+	def get_count_of_artists(self, values):
+		return self._get_count_by_name(Artist, doujinshi_artist, doujinshi_artist.c.artist_id, values)
+	def get_count_of_groups(self, values):
+		return self._get_count_by_name(Group, doujinshi_circle, doujinshi_circle.c.group_id, values)
+	def get_count_of_languages(self, values):
+		return self._get_count_by_name(Language, doujinshi_language, doujinshi_language.c.language_id, values)
+
+
 # def execute_raw_sql(self, query, params)
 # def get_doujinshi_in_batch(self, batch_size, offset, partial=False):
-# def get_count_of_parodies(self, values):
-# def get_count_of_characters(self, values):
-# def get_count_of_tags(self, values):
-# def get_count_of_artists(self, values):
-# def get_count_of_groups(self, values):
-# def get_count_of_languages(self, values):

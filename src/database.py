@@ -69,13 +69,13 @@ class DatabaseManager:
 				session.add(new_item)
 				session.commit()
 			except IntegrityError as e:
-				self.logger.log_insert_item(DatabaseStatus.NON_FATAL_ITEM_DUPLICATE, model, value, e)
+				self.logger.item_duplicate(DatabaseStatus.NON_FATAL_ITEM_DUPLICATE, model, value)
 				return DatabaseStatus.NON_FATAL_ITEM_DUPLICATE
 			except Exception as e:
-				self.logger.log_insert_item(DatabaseStatus.FATAL, model, value, e)
+				self.logger.exception(DatabaseStatus.FATAL, e)
 				return DatabaseStatus.FATAL
 			else:
-				self.logger.log_insert_item(DatabaseStatus.OK, model, value)
+				self.logger.item_inserted(DatabaseStatus.OK, model, value)
 				return DatabaseStatus.OK
 
 
@@ -99,27 +99,23 @@ class DatabaseManager:
 				select(Model).where(Model.name.in_(item_names))
 		)}
 
-		tbl_name = Model.__tablename__
 		for name in item_names:
 			model = existing_models.get(name)
 
 			if model:
-				print(f"[{tbl_name}] already has value: {name!r}")
+				self.logger.item_duplicate(DatabaseStatus.NON_FATAL_ITEM_DUPLICATE, model, name)
 			else:
 				model = Model(name=name)
 				session.add(model)
-				print(f"[{tbl_name}] created: {name!r}")
+				self.logger.item_inserted(DatabaseStatus.OK, model, name)
 
 			getattr(doujinshi_model, relation_name).append(model)
-			print(f"Linked [{tbl_name}] {name!r} <---> [doujinshi] #{doujinshi_model.id}")
+			self.logger.item_and_doujinshi_linked(DatabaseStatus.OK, model, name, doujinshi_model.id)
 
 
 	def insert_doujinshi(self, doujinshi, user_prompt=True):
-		# TODO: use self.logger
-		# doujinshi: a dict. refer to src/utils/create_empty_doujinshi
-		print("INFO | DatabaseManager | func: insert_doujinshi")
 		if not validate_doujinshi(doujinshi, user_prompt=user_prompt):
-			print("validation failed. insertion skip.")
+			self.logger.validation_fail(DatabaseStatus.NON_FATAL_VALIDATION_FAILED)
 			return DatabaseStatus.NON_FATAL_VALIDATION_FAILED
 
 		data = SimpleNamespace(**doujinshi)
@@ -127,7 +123,7 @@ class DatabaseManager:
 		with self.session() as session:
 			statement = select(Doujinshi.id).where(Doujinshi.id == data.id)
 			if session.scalar(statement):
-				print("DOUJINSHI ALREADY EXISTS")
+				self.logger.doujinshi_duplicate(DatabaseStatus.NON_FATAL_ITEM_DUPLICATE, data.id, 2)
 				return DatabaseStatus.NON_FATAL_ITEM_DUPLICATE
 
 			try:
@@ -157,16 +153,16 @@ class DatabaseManager:
 
 				session.commit()
 			except IntegrityError as e:
-				self.logger.logger.info(f"[doujinshi] #{d.id} already exists. {e}")
+				self.logger.doujinshi_duplicate(DatabaseStatus.NON_FATAL_ITEM_DUPLICATE, data.id, 2)
 				return DatabaseStatus.NON_FATAL_ITEM_DUPLICATE
 			except Exception as e:
-				self.logger.logger.info(f"insert_doujinshi UNEXPECTED EXCEPTION {e}")
+				self.logger.exception(DatabaseStatus.FATAL, e, 2)
 				return DatabaseStatus.FATAL
 			else:
-				self.logger.logger.info(f"{d.id} inserted.")
+				self.logger.doujinshi_inserted(DatabaseStatus.OK, data.id, 2)
 				return DatabaseStatus.OK
 
-
+# -------------------------------------CONTINUE FROM HERE----------------------------------------------------------
 	def _add_item_to_doujinshi(self, doujinshi_id, model, relation_name, value):
 		"""
 		Helper function for adding an item (e.g., parody, character) to a Doujinshi.

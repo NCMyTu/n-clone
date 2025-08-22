@@ -6,4 +6,4 @@ class DatabaseStatus(Enum):
 	FATAL = auto()
 	NON_FATAL_ITEM_DUPLICATE = auto()
 	NON_FATAL_ITEM_NOT_FOUND = auto()
-	NON_FATAL_ITEM_EXISTED = auto()
+	NON_FATAL_VALIDATION_FAILED = auto()

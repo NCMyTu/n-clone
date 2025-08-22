@@ -1,7 +1,7 @@
 # TODO: check which lazy option("selectin", "joined") in relationship
 # 		has less select
 # TODO: check insert_group log
-from src.database_new import DatabaseManager
+from src.database import DatabaseManager
 from src.models import Language, Doujinshi
 from sqlalchemy import create_engine, event, select
 from src import utils
@@ -33,16 +33,14 @@ doujinshi = {
 	"languages": []
 }
 dbm.insert_doujinshi(doujinshi, True)
+# dbm.insert_doujinshi(doujinshi, True)
 
-d = dbm.remove_doujinshi(3)
+# d = dbm.remove_doujinshi(3)
 
-ret_status, d = dbm.get_doujinshi(4)
-print(d)
+# ret_status, d = dbm.get_doujinshi(4)
+# print(d)
 
-parodies_to_query = doujinshi["parodies"] + ["should_be_0"]
+# parodies_to_query = doujinshi["parodies"] + ["should_be_0"]
 
-count_dict = dbm.get_count_of_parodies(parodies_to_query)
-print(count_dict)
-
-count_dict = dbm.get_count_of(parodies=parodies_to_query)
-print(count_dict)
+# count_dict = dbm.get_count_of_parodies(parodies_to_query)
+# print(count_dict)

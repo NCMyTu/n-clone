@@ -12,11 +12,11 @@ class DatabaseLogger:
 		self.logger.setLevel(logging.DEBUG)
 
 		if not file_format:
-			self.file_format = "%(levelname)s | %(asctime)s %(name)s | %(funcName)s | %(message)s"
+			self.file_format = "%(levelname)s, %(asctime)s %(name)s, %(funcName)s, %(message)s"
 		else:
 			self.file_format = file_format
 		if not stream_format:
-			self.stream_format = "%(levelname)s | %(name)s | %(funcName)s | %(message)s"
+			self.stream_format = "%(levelname)s, %(name)s, %(funcName)s, %(message)s"
 		else:
 			self.stream_format = stream_format
 
@@ -33,12 +33,57 @@ class DatabaseLogger:
 		self.logger.addHandler(stream_handler)
 
 
+	def success(self, status, msg, stacklevel=3):
+		self.logger.info(f"{status.name}. {msg}", stacklevel=stacklevel)
+
+
+	def exception(self, status, exception, stacklevel=3):
+		msg = f"{status.name}. Unexpected exception.\n{type(exception).__name__}: {exception}"
+		self.logger.error(msg, stacklevel=stacklevel)
+
+
+	def validation_fail(self, status, stacklevel=2):
+		msg = f"{status.name}. Doujinshi validation failed. Insertion skipped."
+		self.logger.info(msg, stacklevel=stacklevel)
+
+
+	def item_not_found(self, status, model, item_name, stacklevel=3):
+		msg = f"{status.name}. [{model.__tablename__}] value not found: {item_name!r}."
+		self.logger.info(msg, stacklevel=stacklevel)
+
+
+	def item_duplicate(self, status, model, item_name, stacklevel=3):
+		msg = f"{status.name}. [{model.__tablename__}] duplicate value: {item_name!r}."
+		self.logger.info(msg, stacklevel=stacklevel)
+
+
+	def doujinshi_duplicate(self, status, doujinshi_id, stacklevel=3):
+		self.logger.info(f"{status.name}. [doujinshi] duplicate ID: #{doujinshi_id}.", stacklevel=stacklevel)
+
+
+	def item_inserted(self, status, model, item_name, stacklevel=3):
+		msg = f"{status.name}. [{model.__tablename__}] inserted new value: {item_name!r}."
+		self.logger.info(msg, stacklevel=stacklevel)
+
+
+	def doujinshi_inserted(self, status, doujinshi_id, stacklevel=3):
+		msg = f"{status.name}. [doujinshi] inserted new value: #{doujinshi_id}."
+		self.logger.info(msg, stacklevel=stacklevel)
+
+
+	def item_and_doujinshi_linked(self, status, model, item_name, doujinshi_id, stacklevel=3):
+		msg = f"{status.name}. Linked [doujinshi] #{doujinshi_id} <--> [{model.__tablename__}] {item_name!r}."
+		self.logger.info(msg, stacklevel=stacklevel)
+
+
+
+
 	def log_insert_item(self, return_status, model, value, exception=None):
 		ret_name = return_status.name
 
 		if return_status == DatabaseStatus.OK:
 			self.logger.info(
-				f"{ret_name} | [{model.__tablename__}] has been inserted into new value: {value!r}.",
+				f"{ret_name}, [{model.__tablename__}] has been inserted into new value: {value!r}.",
 				stacklevel=3
 			)
 		elif return_status == DatabaseStatus.NON_FATAL_ITEM_DUPLICATE:

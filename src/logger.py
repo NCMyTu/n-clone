@@ -1,3 +1,4 @@
+# TODO: switch from per-function logging to error-type-based
 import logging
 
 from .database_status import DatabaseStatus
@@ -11,11 +12,11 @@ class DatabaseLogger:
 		self.logger.setLevel(logging.DEBUG)
 
 		if not file_format:
-			self.file_format = "%(levelname)s | %(asctime)s %(name)s | func: %(funcName)s | %(message)s"
+			self.file_format = "%(levelname)s | %(asctime)s %(name)s | %(funcName)s | %(message)s"
 		else:
 			self.file_format = file_format
 		if not stream_format:
-			self.stream_format = "%(levelname)s | %(name)s | func: %(funcName)s | %(message)s"
+			self.stream_format = "%(levelname)s | %(name)s | %(funcName)s | %(message)s"
 		else:
 			self.stream_format = stream_format
 
@@ -131,4 +132,18 @@ class DatabaseLogger:
 			self.logger.error(
 				f"{ret_name} | Unexpected exception.\n{type(exception).__name__}: {exception}",
 				stacklevel=3
+			)
+
+
+	def log_remove_doujinshi(self, return_status, doujinshi_id, exception=None):
+		ret_name = return_status.name
+
+		if return_status == DatabaseStatus.OK:
+			self.logger.warning(f"{ret_name} | [doujinshi] #{doujinshi_id} has been removed.", stacklevel=2)
+		elif return_status == DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND:
+			self.logger.info(f"{ret_name} | [doujinshi] #{doujinshi_id} doesn't exist.", stacklevel=2)
+		elif return_status == DatabaseStatus.FATAL:
+			self.logger.error(
+				f"{ret_name} | Unexpected exception.\n{type(exception).__name__}: {exception}",
+				stacklevel=2
 			)

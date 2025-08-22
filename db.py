@@ -43,6 +43,9 @@ d = dbm.get_doujinshi(4)
 print("parodies: ", ", ".join([p.name for p in d.parodies]))
 
 parodies_to_query = doujinshi["parodies"] + ["should_be_0"]
-print(parodies_to_query)
+
 count_dict = dbm.get_count_of_parodies(parodies_to_query)
+print(count_dict)
+
+count_dict = dbm.get_count_of(parodies=parodies_to_query)
 print(count_dict)

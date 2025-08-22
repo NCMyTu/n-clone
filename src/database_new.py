@@ -397,24 +397,28 @@ class DatabaseManager:
 		return self._update_column_of_doujinshi(doujinshi_id, "path", pathlib.Path(value).as_posix())
 
 
-	def _get_count_by_name(self, model, many_to_many_table, col_to_join, values):
+	def _get_count_by_name(self, model, many_to_many_table, col_to_join, values, session=None):
 		if not values:
 			return {}
 
-		with self.session() as session:
-			try:
-				statement = (
-					select(model.name, func.count("*"))
-					.select_from(many_to_many_table)
-					.join(model, model.id == col_to_join)
-					.where(model.name.in_(values))
-					.group_by(model.name)
-				)
-				count_dict = dict(session.execute(statement).all())
+		statement = (
+			select(model.name, func.count("*"))
+			.select_from(many_to_many_table)
+			.join(model, model.id == col_to_join)
+			.where(model.name.in_(values))
+			.group_by(model.name)
+		)
 
-				return {name: count_dict.get(name, 0) for name in values}
-			except Exception as e:
-				print(f"Unexpected exception: {e}")
+		try:
+			if not session:
+				with self.session() as session_in:
+					count_dict = dict(session_in.execute(statement).all())
+			else:
+				count_dict = dict(session.execute(statement).all())
+			return {name: count_dict.get(name, 0) for name in values}
+		except Exception as e:
+			print(f"Unexpected exception: {e}")
+			return {}
 
 
 	def get_count_of_parodies(self, values):
@@ -424,12 +428,23 @@ class DatabaseManager:
 	def get_count_of_tags(self, values):
 		return self._get_count_by_name(Tag, doujinshi_tag, doujinshi_tag.c.tag_id,values)
 	def get_count_of_artists(self, values):
-		return self._get_count_by_name(Artist, doujinshi_artist, doujinshi_artist.c.artist_id, values)
+		return self._get_count_by_name(Artist, doujinshi_artist, doujinshi_artist.c.circle_id, values)
 	def get_count_of_groups(self, values):
 		return self._get_count_by_name(Group, doujinshi_circle, doujinshi_circle.c.group_id, values)
 	def get_count_of_languages(self, values):
 		return self._get_count_by_name(Language, doujinshi_language, doujinshi_language.c.language_id, values)
 
 
-# def execute_raw_sql(self, query, params)
+	def get_count_of(self, parodies=None, characters=None, tags=None, artists=None, groups=None, languages=None):
+		results = {}
+		fn = self._get_count_by_name
+		with self.session() as session:
+			results["parodies"] = fn(Parody, doujinshi_parody, doujinshi_parody.c.parody_id, parodies, session)
+			results["characters"] = fn(Character, doujinshi_character, doujinshi_character.c.character_id, characters, session)
+			results["tags"] = fn(Tag, doujinshi_tag, doujinshi_tag.c.tag_id, tags, session)
+			results["artists"] = fn(Artist, doujinshi_artist, doujinshi_artist.c.artist_id, artists, session)
+			results["groups"] = fn(Group, doujinshi_circle, doujinshi_circle.c.circle_id, groups, session)
+			results["languages"] = fn(Language, doujinshi_language, doujinshi_language.c.language_id, languages, session)
+		return results
+
 # def get_doujinshi_in_batch(self, batch_size, offset, partial=False):

@@ -437,9 +437,10 @@ class DatabaseManager:
 				"full_name_original": doujinshi.full_name_original,
 				"pretty_name": doujinshi.pretty_name,
 				"pretty_name_original": doujinshi.pretty_name_original,
-				"path": doujinshi.path, 
+				"path": doujinshi.path,
 				"note": doujinshi.note
 			}
+			djs_dict["pages"] = [p.filename for p in doujinshi.pages]
 
 			count = self._get_count_by_name
 			djs_dict["parodies"] = count(Parody, d_parody, d_parody.c.parody_id,

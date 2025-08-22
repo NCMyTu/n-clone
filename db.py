@@ -34,13 +34,10 @@ doujinshi = {
 }
 dbm.insert_doujinshi(doujinshi, True)
 
-d = dbm.get_doujinshi(4) # should return status code as well
-print("parodies: ", ", ".join([p.name for p in d.parodies]))
-
 d = dbm.remove_doujinshi(3)
 
-d = dbm.get_doujinshi(4)
-print("parodies: ", ", ".join([p.name for p in d.parodies]))
+ret_status, d = dbm.get_doujinshi(4)
+print(d)
 
 parodies_to_query = doujinshi["parodies"] + ["should_be_0"]
 

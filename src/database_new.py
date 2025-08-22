@@ -6,8 +6,8 @@ from .database_status import DatabaseStatus
 from .logger import DatabaseLogger
 from .models import Artist, Base, Character, Doujinshi, Group, Language, Parody, Tag, Page, many_to_many_tables
 from .models.many_to_many_tables import (
-	doujinshi_language, doujinshi_circle, doujinshi_artist,
-	doujinshi_tag, doujinshi_character, doujinshi_parody
+	doujinshi_language as d_language, doujinshi_circle as d_circle, doujinshi_artist as d_artist,
+	doujinshi_tag as d_tag, doujinshi_character as d_character, doujinshi_parody as d_parody
 )
 from .utils import validate_doujinshi
 from sqlalchemy import create_engine, event, select, func
@@ -52,32 +52,6 @@ class DatabaseManager:
 		# restore previous autocommit setting
 		dbapi_connection.autocommit = ac
 		# print("foreign_keys is ON.")
-
-
-	def get_doujinshi(self, doujinshi_id):
-		# TODO: measure performance of joinedload and selectinload
-		#       log
-		with self.session() as session:
-			statement = (
-				select(Doujinshi)
-				.options(
-					selectinload(Doujinshi.parodies),
-					selectinload(Doujinshi.characters),
-					selectinload(Doujinshi.tags),
-					selectinload(Doujinshi.artists),
-					selectinload(Doujinshi.groups),
-					selectinload(Doujinshi.languages),
-					selectinload(Doujinshi.pages)
-				)
-				.where(Doujinshi.id == doujinshi_id)
-			)
-			# print(f"---------------\n{statement}\n---------------")
-			doujinshi = session.scalar(statement)
-
-			if not doujinshi:
-				return DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND
-
-			return doujinshi
 
 
 	def _insert_item(self, model, value):
@@ -422,29 +396,71 @@ class DatabaseManager:
 
 
 	def get_count_of_parodies(self, values):
-		return self._get_count_by_name(Parody, doujinshi_parody, doujinshi_parody.c.parody_id, values)
+		return self._get_count_by_name(Parody, d_parody, d_parody.c.parody_id, values)
 	def get_count_of_characters(self, values):
-		return self._get_count_by_name(Character, doujinshi_character, doujinshi_character.c.character_id,values)
+		return self._get_count_by_name(Character, d_character, d_character.c.character_id,values)
 	def get_count_of_tags(self, values):
-		return self._get_count_by_name(Tag, doujinshi_tag, doujinshi_tag.c.tag_id,values)
+		return self._get_count_by_name(Tag, d_tag, d_tag.c.tag_id,values)
 	def get_count_of_artists(self, values):
-		return self._get_count_by_name(Artist, doujinshi_artist, doujinshi_artist.c.circle_id, values)
+		return self._get_count_by_name(Artist, d_artist, d_artist.c.artist_id, values)
 	def get_count_of_groups(self, values):
-		return self._get_count_by_name(Group, doujinshi_circle, doujinshi_circle.c.group_id, values)
+		return self._get_count_by_name(Group, d_circle, d_circle.c.circle_id, values)
 	def get_count_of_languages(self, values):
-		return self._get_count_by_name(Language, doujinshi_language, doujinshi_language.c.language_id, values)
+		return self._get_count_by_name(Language, d_language, d_language.c.language_id, values)
 
 
-	def get_count_of(self, parodies=None, characters=None, tags=None, artists=None, groups=None, languages=None):
-		results = {}
-		fn = self._get_count_by_name
+	def get_doujinshi(self, doujinshi_id):
+		# TODO: measure performance of joinedload and selectinload
+		#       log
 		with self.session() as session:
-			results["parodies"] = fn(Parody, doujinshi_parody, doujinshi_parody.c.parody_id, parodies, session)
-			results["characters"] = fn(Character, doujinshi_character, doujinshi_character.c.character_id, characters, session)
-			results["tags"] = fn(Tag, doujinshi_tag, doujinshi_tag.c.tag_id, tags, session)
-			results["artists"] = fn(Artist, doujinshi_artist, doujinshi_artist.c.artist_id, artists, session)
-			results["groups"] = fn(Group, doujinshi_circle, doujinshi_circle.c.circle_id, groups, session)
-			results["languages"] = fn(Language, doujinshi_language, doujinshi_language.c.language_id, languages, session)
-		return results
+			statement = (
+				select(Doujinshi)
+				.options(
+					selectinload(Doujinshi.parodies),
+					selectinload(Doujinshi.characters),
+					selectinload(Doujinshi.tags),
+					selectinload(Doujinshi.artists),
+					selectinload(Doujinshi.groups),
+					selectinload(Doujinshi.languages),
+					selectinload(Doujinshi.pages)
+				)
+				.where(Doujinshi.id == doujinshi_id)
+			)
+			doujinshi = session.scalar(statement)
+
+			if not doujinshi:
+				return DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND, None
+
+			djs_dict = {
+				"id": doujinshi.id,
+				"full_name": doujinshi.full_name,
+				"full_name_original": doujinshi.full_name_original,
+				"pretty_name": doujinshi.pretty_name,
+				"pretty_name_original": doujinshi.pretty_name_original,
+				"path": doujinshi.path, 
+				"note": doujinshi.note
+			}
+
+			count = self._get_count_by_name
+			djs_dict["parodies"] = count(Parody, d_parody, d_parody.c.parody_id,
+				[p.name for p in doujinshi.parodies], session)
+			djs_dict["characters"] = count(Character, d_character, d_character.c.character_id,
+				[c.name for c in doujinshi.characters], session
+			)
+			djs_dict["tags"] = count(Tag, d_tag, d_tag.c.tag_id,
+				[t.name for t in doujinshi.tags], session
+			)
+			djs_dict["artists"] = count(Artist, d_artist, d_artist.c.artist_id,
+				[a.name for a in doujinshi.artists], session
+			)
+			djs_dict["groups"] = count(Group, d_circle, d_circle.c.circle_id,
+				[g.name for g in doujinshi.groups], session
+			)
+			djs_dict["languages"] = count(Language, d_language, d_language.c.language_id,
+				[l.name for l in doujinshi.languages], session
+			)
+
+			return DatabaseStatus.OK, djs_dict
+
 
 # def get_doujinshi_in_batch(self, batch_size, offset, partial=False):

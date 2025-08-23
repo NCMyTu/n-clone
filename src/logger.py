@@ -82,7 +82,7 @@ class DatabaseLogger:
 
 
 	def item_added_to_doujinshi(self, status, model, item_name, doujinshi_id, stacklevel=3):
-		msg = f"{status.name}. [doujinshi] #{doujinshi_id} now includes: [{model.__tablename__}] {item_name!r}.",
+		msg = f"{status.name}. [doujinshi] #{doujinshi_id} now includes: [{model.__tablename__}] {item_name!r}."
 		self.logger.info(msg, stacklevel=stacklevel)
 
 

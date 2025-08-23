@@ -108,23 +108,32 @@ def validate_doujinshi(doujinshi, user_prompt=True):
 		errors.append("pages has duplicate file names.")
 
 	if (not warnings) and (not errors):
+		print("-" * 50)
 		return True
 
+	print(f"{"-" * 50}\nDoujinshi #{doujinshi['id']}")
+
 	if errors:
-		print(f"Doujinshi #{doujinshi['id']} ERRORS:")
+		print(f"ERRORS:")
 		for e in errors:
 			print(f"\t{e}")
 	if warnings:
-		print(f"Doujinshi #{doujinshi['id']} WARNINGS:")
+		print(f"WARNINGS:")
 		for w in warnings:
 			print(f"\t{w}")
 
-	if not user_prompt:
+	if errors:
+		print("-" * 50)
 		return False
+
+	if not user_prompt:
+		print("-" * 50)
+		return True
 
 	while True:
 		answer = input("Do you really want to continue despite warnings? Y/n\n\t> ")
 		if answer in ("Y", "n"):
+			print("-" * 50)
 			return answer == "Y"
 		print("Please enter exactly 'Y' or 'n'.")
 

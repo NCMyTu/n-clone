@@ -15,22 +15,31 @@ class DatabaseLogger:
 			self.file_format = "%(levelname)s, %(asctime)s %(name)s, %(funcName)s, %(message)s"
 		else:
 			self.file_format = file_format
+		self.file_handler = logging.FileHandler(log_path, encoding="utf-8")
+		self.file_handler.setLevel(logging.DEBUG)
+		file_formatter = logging.Formatter(self.file_format)
+		self.file_handler.setFormatter(file_formatter)
+
 		if not stream_format:
 			self.stream_format = "%(levelname)s, %(name)s, %(funcName)s, %(message)s"
 		else:
 			self.stream_format = stream_format
-
-		file_handler = logging.FileHandler(log_path, encoding="utf-8")
-		file_handler.setLevel(logging.DEBUG)
-		file_formatter = logging.Formatter(self.file_format)
-		file_handler.setFormatter(file_formatter)
-		self.logger.addHandler(file_handler)
-
-		stream_handler = logging.StreamHandler()
-		stream_handler.setLevel(logging.DEBUG)
+		self.stream_handler = logging.StreamHandler()
+		self.stream_handler.setLevel(logging.DEBUG)
 		stream_formatter = logging.Formatter(self.stream_format)
-		stream_handler.setFormatter(stream_formatter)
-		self.logger.addHandler(stream_handler)
+		self.stream_handler.setFormatter(stream_formatter)
+
+		self.enable()
+
+
+	def enable(self):
+		self.logger.addHandler(self.file_handler)
+		self.logger.addHandler(self.stream_handler)
+
+
+	def disable(self):
+		self.logger.removeHandler(self.file_handler)
+		self.logger.removeHandler(self.stream_handler)
 
 
 	def success(self, status, msg, stacklevel=3):

@@ -17,11 +17,20 @@ from sqlalchemy.orm import sessionmaker, validates, selectinload, joinedload
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from types import SimpleNamespace
 import pathlib
+from sqlalchemy.pool import StaticPool
 
 
 class DatabaseManager:
-	def __init__(self, url, echo=False, log_path="database.log"):
-		self.engine = create_engine(url, echo=echo)
+	def __init__(self, url, echo=False, log_path="database.log", test=False):
+		if test:
+			self.engine = create_engine(
+			url,
+			echo=echo,
+			connect_args={"check_same_thread": False},
+			poolclass=StaticPool,
+		)
+		else:
+			self.engine = create_engine(url, echo=echo)
 		self._session = sessionmaker(bind=self.engine, autoflush=False, autocommit=False)
 		self.logger = DatabaseLogger(name="DatabaseManager", log_path=log_path)
 
@@ -30,8 +39,9 @@ class DatabaseManager:
 		Base.metadata.create_all(self.engine)
 		self.insert_language("english")
 		self.insert_language("japanese")
-		self.insert_language("chinese")
 		self.insert_language("textless")
+		self.insert_language("chinese")
+		return DatabaseStatus.OK
 
 
 	def session(self):
@@ -114,9 +124,13 @@ class DatabaseManager:
 
 
 	def insert_doujinshi(self, doujinshi, user_prompt=True):
-		if not validate_doujinshi(doujinshi, user_prompt=user_prompt):
-			self.logger.validation_failed(DatabaseStatus.NON_FATAL_VALIDATION_FAILED)
-			return DatabaseStatus.NON_FATAL_VALIDATION_FAILED
+		try:
+			if not validate_doujinshi(doujinshi, user_prompt=user_prompt):
+				self.logger.validation_failed(DatabaseStatus.NON_FATAL_VALIDATION_FAILED)
+				return DatabaseStatus.NON_FATAL_VALIDATION_FAILED
+		except Exception as e:
+			self.logger.exception(DatabaseStatus.FATAL, e)
+			return DatabaseStatus.FATAL
 
 		data = SimpleNamespace(**doujinshi)
 
@@ -169,7 +183,7 @@ class DatabaseManager:
 
 	def _add_item_to_doujinshi(self, doujinshi_id, model, relation_name, value):
 		"""
-		Helper function for adding an item (e.g., parody, character) to a Doujinshi.
+		Helper function for adding a single item (e.g., parody, character) to a Doujinshi.
 		Use add_parody_to_doujinshi, add_character_to_doujinshi, etc. instead.
 
 		Returns:
@@ -313,7 +327,7 @@ class DatabaseManager:
 		return self._remove_item_from_doujinshi(doujinshi_id, Group, "groups", value)
 	def remove_language_from_doujinshi(self, doujinshi_id, value):
 		return self._remove_item_from_doujinshi(doujinshi_id, Language, "languages", value)
-	def remove_pages_from_doujinshi(self, doujinshi_id):
+	def remove_all_pages_from_doujinshi(self, doujinshi_id):
 		return self._set_pages_to_doujinshi(doujinshi_id, None)
 
 

@@ -2,6 +2,9 @@ import re
 from pathlib import Path
 
 
+VALID_LANGUAGES = ["english", "japanese", "textless", "chinese"]
+
+
 def extract_all_numbers(s):
 	return [int(num) for num in re.findall(r'\d+', s)]
 
@@ -33,23 +36,17 @@ def create_empty_doujinshi():
 
 
 def validate_doujinshi(doujinshi, user_prompt=True):
-	# TODO: path must be in posix format
 	errors = []
 	warnings = []
 
+	if isinstance(doujinshi["id"], bool):
+		errors.append(f"id must be an int. Got {doujinshi["id"]!r} instead.")
 	if not isinstance(doujinshi["id"], int):
 		errors.append(f"id must be an int. Got {doujinshi["id"]!r} instead.")
 	if not is_non_empty_str(doujinshi["full_name"]):
 		errors.append("full_name must be a non-empty string.")
 	if not is_non_empty_str(doujinshi["path"]):
 		errors.append(f"path must be a non-empty string.")
-
-	# cover_filename = doujinshi["cover_filename"]
-	# if (isinstance(cover_filename, str) and (not cover_filename)) or isinstance(cover_filename, str):
-	# 	errors.append(f"cover_filename must be a non-empty string.")
-
-	# if not Path(doujinshi["cover_filename"]).as_posix().startswith(Path(doujinshi["path"]).as_posix()):
-	# 	errors.append("cover_filename and path are mismatched.")
 
 	required_fields = [
 		("pretty_name", False),
@@ -96,12 +93,15 @@ def validate_doujinshi(doujinshi, user_prompt=True):
 				if value != value.strip():
 					warnings.append(f"{attr} has leading/trailing spaces.")
 
+	if doujinshi["path"] and doujinshi["path"] != Path(doujinshi["path"]).as_posix():
+		warnings.append("path should use POSIX-style separator (no \\)")
+
 	if doujinshi["tags"] and "textless" in doujinshi["tags"]:
 		warnings.append("Consider moving \"textless\" from tags to languages.")
 	
 	if doujinshi["languages"]:
 		for lang in doujinshi["languages"]:
-			if lang.strip() not in Doujinshi.VALID_LANGUAGES:
+			if lang.strip() not in VALID_LANGUAGES:
 				warnings.append(f"Unknown language '{lang}'.")
 
 	if (len(set(doujinshi["pages"])) != len(doujinshi["pages"])): 

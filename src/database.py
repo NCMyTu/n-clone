@@ -400,11 +400,11 @@ class DatabaseManager:
 		)
 
 		try:
-			if not session:
+			if session:
+				count_dict = dict(session.execute(statement).all())
+			else:
 				with self.session() as session_in:
 					count_dict = dict(session_in.execute(statement).all())
-			else:
-				count_dict = dict(session.execute(statement).all())
 			return DatabaseStatus.OK, {name: count_dict.get(name, 0) for name in values}
 		except Exception as e:
 			self.logger.exception(DatabaseStatus.FATAL, e)

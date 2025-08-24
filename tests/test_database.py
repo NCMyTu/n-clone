@@ -14,8 +14,7 @@ def dbm():
 	return dbm
 
 
-@pytest.fixture
-def sample_doujinshi():
+def _sample_doujinshi():
 	return {
 		"id": 1,
 		
@@ -32,6 +31,11 @@ def sample_doujinshi():
 		"languages": [f"language_{i}" for i in range(1, 6)],
 		"pages": [f"f_{i}.jpg" for i in range(1, 31)],
 	}
+
+
+@pytest.fixture
+def sample_doujinshi():
+	return _sample_doujinshi()
 
 
 INVALID_VALUES = [
@@ -264,4 +268,78 @@ def test_update_doujinshi_fields(dbm, sample_doujinshi, update_method_name, fiel
 	assert update_method(-999999, new_value) == DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND
 
 
-# def test_get_count_of_items(dbm):
+@pytest.mark.parametrize("item_type", [
+	"parodies", "characters", "tags", "artists", "groups", "languages"
+])
+def test_get_count_of_items_in_category(dbm, item_type):
+	items = [f"item_{i}" for i in range(100)]
+	item_count = {item: 0 for item in items}
+
+	get_count_of = f"get_count_of_{item_type}"
+	get_count_of = getattr(dbm, get_count_of)
+
+	for i in range(200):
+		doujinshi = _sample_doujinshi()
+
+		n_items = random.randint(0, len(items)//2)
+		selected_items = random.sample(items, n_items)
+
+		doujinshi["id"] = i
+		doujinshi["path"] = f"path_{i}"
+		doujinshi[item_type] = selected_items
+
+		for item in selected_items:
+			item_count[item] += 1
+
+		assert dbm.insert_doujinshi(doujinshi, False) == DatabaseStatus.OK
+
+	return_status, retrieved_item_count = get_count_of(items)
+	assert return_status == DatabaseStatus.OK
+	assert retrieved_item_count == item_count
+
+	return_status, empty_item_count = get_count_of([])
+	assert return_status == DatabaseStatus.OK
+	assert empty_item_count == {}
+
+	return_status, no_exist_item_count = get_count_of(["no_exist"])
+	assert return_status == DatabaseStatus.OK
+	assert no_exist_item_count == {"no_exist": 0}
+
+
+def test_get_count_of_items_when_getting_doujinshi(dbm):
+	def is_subdict(small, big):
+		return all(k in big and big[k] == v for k, v in small.items())
+
+	parody_count, character_count, tag_count = [{f"item_{i}": 0 for i in range(100)} for _ in range(3)]
+	artist_count, group_count, language_count = [{f"item_{i}": 0 for i in range(100)} for _ in range(3)]
+
+	mapping = {
+		"parodies": parody_count,
+		"characters": character_count,
+		"tags": tag_count,
+		"artists": artist_count,
+		"groups": group_count,
+		"languages": language_count,
+	}
+
+	for i in range(200):
+		doujinshi = _sample_doujinshi()
+		doujinshi["id"] = i
+		doujinshi["path"] = f"path_{i}"
+
+		for field, item_count in mapping.items():
+			n_items = random.randint(0, 50)
+
+			doujinshi[field] = random.sample(list(item_count.keys()), n_items)
+
+			for item in doujinshi[field]:
+				item_count[item] += 1
+
+		dbm.insert_doujinshi(doujinshi, False)
+
+	for i in range(200):
+		return_status, doujinshi = dbm.get_doujinshi(i)
+		assert return_status == DatabaseStatus.OK
+
+		for field, item_count in mapping.items():
+			assert is_subdict(doujinshi[field], item_count)

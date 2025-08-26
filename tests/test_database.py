@@ -3,6 +3,7 @@ from datetime import date, datetime
 from pathlib import Path
 import pytest
 import random
+import math
 
 
 @pytest.fixture
@@ -306,7 +307,7 @@ def test_get_count_of_items_in_category(dbm, item_type):
 	assert no_exist_item_count == {"no_exist": 0}
 
 
-def test_get_count_of_items_when_getting_doujinshi(dbm):
+def test_get_count_of_items_when_getting_and_removing_doujinshi(dbm):
 	def is_subdict(small, big):
 		return all(k in big and big[k] == v for k, v in small.items())
 
@@ -322,13 +323,17 @@ def test_get_count_of_items_when_getting_doujinshi(dbm):
 		"languages": language_count,
 	}
 
-	for i in range(200):
+	n_doujinshis = 200
+	n_items_to_remove = 50
+
+	# Insert new doujinshis
+	for i in range(n_doujinshis):
 		doujinshi = _sample_doujinshi()
 		doujinshi["id"] = i
 		doujinshi["path"] = f"path_{i}"
 
 		for field, item_count in mapping.items():
-			n_items = random.randint(0, 50)
+			n_items = random.randint(0, n_items_to_remove)
 
 			doujinshi[field] = random.sample(list(item_count.keys()), n_items)
 
@@ -337,9 +342,86 @@ def test_get_count_of_items_when_getting_doujinshi(dbm):
 
 		dbm.insert_doujinshi(doujinshi, False)
 
-	for i in range(200):
+	# Verify counts after insertion
+	for i in range(n_doujinshis):
 		return_status, doujinshi = dbm.get_doujinshi(i)
 		assert return_status == DatabaseStatus.OK
 
 		for field, item_count in mapping.items():
 			assert is_subdict(doujinshi[field], item_count)
+
+	# Verify counts after removal
+	for i in range(n_doujinshis):
+		return_status, doujinshi = dbm.get_doujinshi(i)
+		assert return_status == DatabaseStatus.OK
+
+		# Remove first n_items_to_remove doujinshis
+		if i < n_items_to_remove:
+			for field, item_count in mapping.items():
+				for item in doujinshi[field]:
+					item_count[item] -= 1
+
+			return_status = dbm.remove_doujinshi(i)
+			assert return_status == DatabaseStatus.OK
+		# Verify again
+		else:
+			for field, item_count in mapping.items():
+				assert is_subdict(doujinshi[field], item_count)
+
+
+def insert_doujinshi_into_db(dbm, n_doujinshis):
+	to_compare = []
+
+	for i in range(n_doujinshis+1, 1, -1):
+		doujinshi = _sample_doujinshi()
+
+		doujinshi["id"] = i
+		doujinshi["full_name"] = f"full_name_{i}"
+		doujinshi["path"] = f"path_{i}"
+		random.shuffle(doujinshi["pages"])
+
+		to_compare.append({
+			"id": doujinshi["id"],
+			"full_name": doujinshi["full_name"],
+			"path": doujinshi["path"],
+			"cover_filename": doujinshi["pages"][0]
+		})
+
+		return_status = dbm.insert_doujinshi(doujinshi, False)
+		assert return_status == DatabaseStatus.OK
+
+	return to_compare
+
+
+def split_list(list_to_split, k):
+	return [list_to_split[i:i+k] for i in range(0, len(list_to_split), k)]
+
+
+def test_get_doujinshi_in_batch_valid_page_number(dbm):
+	n_doujinshis_to_test = 517 # must not be divisible by page_size
+	page_size = 25
+	retrieved_doujinshis = []
+
+	to_compare = insert_doujinshi_into_db(dbm, n_doujinshis_to_test)
+
+	for page_no in range(1, math.ceil(n_doujinshis_to_test / page_size) + 1):
+		return_status, _retrieved_doujinshis = dbm.get_doujinshi_in_batch(page_size, page_no)
+		assert return_status == DatabaseStatus.OK
+		retrieved_doujinshis.append(_retrieved_doujinshis)
+
+	to_compare = split_list(to_compare, page_size)
+
+	assert retrieved_doujinshis == to_compare
+	assert len(retrieved_doujinshis[-1]) == n_doujinshis_to_test % page_size
+
+
+def test_get_doujinshi_in_batch_illegal_page_number(dbm):
+	illegal_page_numbers = [-1, 0, 10**6]
+	page_size=25
+
+	insert_doujinshi_into_db(dbm, 102)
+
+	for illegal_page_number in illegal_page_numbers:
+		return_status, should_be_empty = dbm.get_doujinshi_in_batch(page_size, illegal_page_number)
+		assert return_status == DatabaseStatus.OK
+		assert should_be_empty == []

@@ -33,13 +33,17 @@ class DatabaseLogger:
 
 
 	def enable(self):
+		self.disable() # to prevent duplicate handlers
+
 		self.logger.addHandler(self.file_handler)
 		self.logger.addHandler(self.stream_handler)
 
 
 	def disable(self):
-		self.logger.removeHandler(self.file_handler)
-		self.logger.removeHandler(self.stream_handler)
+		loggers_to_remove = [logger for logger in self.logger.handlers]
+
+		for logger in loggers_to_remove:
+			self.logger.removeHandler(logger)
 
 
 	def success(self, status, msg, stacklevel=3):

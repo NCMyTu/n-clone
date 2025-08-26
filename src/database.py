@@ -32,7 +32,7 @@ class DatabaseManager:
 		else:
 			self.engine = create_engine(url, echo=echo)
 		self._session = sessionmaker(bind=self.engine, autoflush=False, autocommit=False)
-		self.logger = DatabaseLogger(name="DatabaseManager", log_path=log_path)
+		self.logger = DatabaseLogger(name=self.__class__.__name__, log_path=log_path)
 
 
 	def create_database(self):
@@ -482,4 +482,35 @@ class DatabaseManager:
 			return DatabaseStatus.OK, djs_dict
 
 
-# def get_doujinshi_in_batch(self, batch_size, offset, partial=False):
+	def get_doujinshi_in_batch(self, page_size, page_number):
+		if page_number < 1:
+			return DatabaseStatus.OK, []
+
+		doujinshi_list = []
+
+		with self.session() as session:
+			try:
+				offset = (page_number - 1) * page_size
+				statement = (
+					select(Doujinshi.id, Doujinshi.full_name, Doujinshi.path, Page.filename)
+					.join(Page, Doujinshi.id == Page.doujinshi_id)
+					.order_by(Doujinshi.id.desc())
+					.where(Page.doujinshi_id == Doujinshi.id)
+					.where(Page.order_number == 1)
+					.offset(offset)
+					.limit(page_size)
+				)
+				results = session.execute(statement).all()
+
+				for doujinshi_id, full_name, path, cover_filename in results:
+					doujinshi_list.append({
+						"id": doujinshi_id,
+						"full_name": full_name,
+						"path": path,
+						"cover_filename": cover_filename
+					})
+
+				return DatabaseStatus.OK, doujinshi_list
+			except Exception as e:
+				self.logger.exception(DatabaseStatus.FATAL, e, 2)
+				return DatabaseStatus.FATAL, []

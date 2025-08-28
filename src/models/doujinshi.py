@@ -21,12 +21,6 @@ class Doujinshi(Base):
 	path: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
 	note: Mapped[str] = mapped_column(Text, nullable=True)
 
-	cover_id: Mapped[int] = mapped_column(
-		Integer,
-		ForeignKey("page.id", ondelete="SET NULL"),
-		nullable=True
-	)
-
 	pages: Mapped[list["Page"]] = relationship(
 		"Page",
 		back_populates="doujinshi",
@@ -34,6 +28,7 @@ class Doujinshi(Base):
 		cascade="all, delete-orphan",
 		order_by="Page.order_number"
 	)
+
 	parodies: Mapped[list["Parody"]] = relationship(
 		"Parody",
 		secondary=many_to_many_tables.doujinshi_parody,

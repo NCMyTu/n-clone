@@ -9,17 +9,21 @@ from sqlalchemy.orm import mapped_column
 from sqlalchemy.orm import relationship
 
 
+PAGE_SQLITE_WITH_ROWID = True
+
+
 class Page(Base):
 	__tablename__ = "page"
 
-	id: Mapped[int] = mapped_column(Integer, primary_key=True)
+	# id: Mapped[int] = mapped_column(Integer, primary_key=True)
 	filename: Mapped[str] = mapped_column(Text, nullable=False)
-	order_number: Mapped[int] = mapped_column(Integer, nullable=False)
+	order_number: Mapped[int] = mapped_column(Integer, nullable=False, primary_key=True)
 	
 	doujinshi_id: Mapped[int] = mapped_column(
 		Integer,
 		ForeignKey("doujinshi.id", ondelete="CASCADE"),
-		nullable=False
+		nullable=False,
+		primary_key=True
 	)
 	doujinshi = relationship(
 		"Doujinshi",
@@ -30,5 +34,6 @@ class Page(Base):
 		CheckConstraint("filename <> ''"),
 		CheckConstraint("order_number > 0"),
 		UniqueConstraint("doujinshi_id", "filename"),
-		UniqueConstraint("doujinshi_id", "order_number")
+		UniqueConstraint("doujinshi_id", "order_number"),
+		{"sqlite_with_rowid": PAGE_SQLITE_WITH_ROWID}
 	)

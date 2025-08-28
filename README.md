@@ -16,9 +16,9 @@
 - [ ] Add `Database.check_health`: check if there are any stray doujinshi in joint tables
 - [ ] Add page confirmation in `Doujinshi.strict_mode`
 - [ ] Add a final confirmation to `Doujinshi.strict_mode`
-- [ ] Use `logging` instead of printing
+- [x] Use `logging` instead of printing
 - [ ] Db design
 - [ ] Docs
 - [ ] Example
-- [ ] Tests
-- [ ] CHeck if WITHOUT ROWID in many-to-many tables actually speeds things up
+- [x] Tests
+- [ ] CHeck if WITHOUT ROWID in many-to-many tables and Page actually speeds things up

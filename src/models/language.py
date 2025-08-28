@@ -11,17 +11,17 @@ from sqlalchemy.orm import relationship
 
 
 class Language(Base):
-    __tablename__ = "language"
+	__tablename__ = "language"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    name: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+	id: Mapped[int] = mapped_column(Integer, primary_key=True)
+	name: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
 
-    doujinshis: Mapped[list["Doujinshi"]] = relationship(
-        "Doujinshi",
-        secondary=doujinshi_language,
-        back_populates="languages"
-    )
+	doujinshis: Mapped[list["Doujinshi"]] = relationship(
+		"Doujinshi",
+		secondary=doujinshi_language,
+		back_populates="languages"
+	)
 
-    __table_args__ = (
-        CheckConstraint("name <> ''"),
-    )
+	__table_args__ = (
+		CheckConstraint("name <> ''"),
+	)

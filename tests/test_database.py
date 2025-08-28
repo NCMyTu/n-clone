@@ -419,7 +419,7 @@ def test_get_doujinshi_in_batch_illegal_page_number(dbm):
 	illegal_page_numbers = [-1, 0, 10**6]
 	page_size=25
 
-	insert_doujinshi_into_db(dbm, 102)
+	insert_doujinshi_into_db(dbm, 107)
 
 	for illegal_page_number in illegal_page_numbers:
 		return_status, should_be_empty = dbm.get_doujinshi_in_batch(page_size, illegal_page_number)

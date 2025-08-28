@@ -108,7 +108,7 @@ def validate_doujinshi(doujinshi, user_prompt=True):
 		errors.append("pages has duplicate file names.")
 
 	if (not warnings) and (not errors):
-		print("-" * 50)
+		# print("-" * 50)
 		return True
 
 	print(f"{"-" * 50}\nDoujinshi #{doujinshi['id']}")

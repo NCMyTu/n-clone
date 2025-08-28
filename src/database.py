@@ -21,7 +21,7 @@ from sqlalchemy.pool import StaticPool
 
 
 class DatabaseManager:
-	def __init__(self, url, echo=False, log_path="database.log", test=False):
+	def __init__(self, url, log_path="db.log", echo=False, test=False):
 		if test:
 			self.engine = create_engine(
 			url,
@@ -56,7 +56,8 @@ class DatabaseManager:
 		dbapi_connection.autocommit = True
 
 		cursor = dbapi_connection.cursor()
-		cursor.execute("PRAGMA foreign_keys = ON")
+		cursor.execute("PRAGMA foreign_keys = ON;")
+		cursor.execute("PRAGMA cache_size = -5000;") # 5MB
 		cursor.close()
 
 		# restore previous autocommit setting
@@ -514,3 +515,6 @@ class DatabaseManager:
 			except Exception as e:
 				self.logger.exception(DatabaseStatus.FATAL, e, 2)
 				return DatabaseStatus.FATAL, []
+
+
+	# def export_to_json(self):

@@ -18,7 +18,7 @@ class Page(Base):
 	# id: Mapped[int] = mapped_column(Integer, primary_key=True)
 	filename: Mapped[str] = mapped_column(Text, nullable=False)
 	order_number: Mapped[int] = mapped_column(Integer, nullable=False, primary_key=True)
-	
+
 	doujinshi_id: Mapped[int] = mapped_column(
 		Integer,
 		ForeignKey("doujinshi.id", ondelete="CASCADE"),

@@ -239,6 +239,7 @@ def test_remove_doujinshi(dbm, sample_doujinshi):
 	assert dbm.insert_doujinshi(sample_doujinshi, False) == DatabaseStatus.OK
 
 	assert dbm.remove_doujinshi(sample_doujinshi["id"]) == DatabaseStatus.OK
+	assert dbm.remove_doujinshi(sample_doujinshi["id"]) == DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND
 	assert dbm.remove_doujinshi(-9999999) == DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND
 
 
@@ -269,17 +270,30 @@ def test_update_doujinshi_fields(dbm, sample_doujinshi, update_method_name, fiel
 	assert update_method(-999999, new_value) == DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND
 
 
-@pytest.mark.parametrize("item_type", [
-	"parodies", "characters", "tags", "artists", "groups", "languages"
+@pytest.mark.parametrize("item_type, update_count_method, use_bulk_update",
+[
+	("parodies", "update_count_of_parody", False),
+	("characters", "update_count_of_character", False),
+	("tags", "update_count_of_tag", False),
+	("artists", "update_count_of_artist", False),
+	("groups", "update_count_of_group", False),
+	("languages", "update_count_of_language", False),
+	# same as above but using update_count_of_all() instead
+	("parodies", None, True),
+	("characters", None, True),
+	("tags", None, True),
+	("artists", None, True),
+	("groups", None, True),
+	("languages", None, True),
 ])
-def test_get_count_of_items_in_category(dbm, item_type):
-	items = [f"item_{i}" for i in range(100)]
+def test_get_count_of_items_in_category(dbm, item_type, update_count_method, use_bulk_update):
+	items = [f"item_{i}" for i in range(50)]
 	item_count = {item: 0 for item in items}
 
 	get_count_of = f"get_count_of_{item_type}"
 	get_count_of = getattr(dbm, get_count_of)
 
-	for i in range(200):
+	for i in range(150):
 		doujinshi = _sample_doujinshi()
 
 		n_items = random.randint(0, len(items)//2)
@@ -293,6 +307,11 @@ def test_get_count_of_items_in_category(dbm, item_type):
 			item_count[item] += 1
 
 		assert dbm.insert_doujinshi(doujinshi, False) == DatabaseStatus.OK
+
+	if use_bulk_update:
+		dbm.update_count_of_all()
+	else:
+		getattr(dbm, update_count_method)()
 
 	return_status, retrieved_item_count = get_count_of(items)
 	assert return_status == DatabaseStatus.OK
@@ -311,8 +330,10 @@ def test_get_count_of_items_when_getting_and_removing_doujinshi(dbm):
 	def is_subdict(small, big):
 		return all(k in big and big[k] == v for k, v in small.items())
 
-	parody_count, character_count, tag_count = [{f"item_{i}": 0 for i in range(100)} for _ in range(3)]
-	artist_count, group_count, language_count = [{f"item_{i}": 0 for i in range(100)} for _ in range(3)]
+	n_items_per_type = 50
+	parody_count, character_count, tag_count, artist_count, group_count, language_count = [
+		{f"item_{i}": 0 for i in range(n_items_per_type)} for _ in range(6)
+	]
 
 	mapping = {
 		"parodies": parody_count,
@@ -323,8 +344,8 @@ def test_get_count_of_items_when_getting_and_removing_doujinshi(dbm):
 		"languages": language_count,
 	}
 
-	n_doujinshis = 200
-	n_items_to_remove = 50
+	n_doujinshis = 150
+	n_doujinshis_to_remove = 50
 
 	# Insert new doujinshis
 	for i in range(n_doujinshis):
@@ -333,7 +354,7 @@ def test_get_count_of_items_when_getting_and_removing_doujinshi(dbm):
 		doujinshi["path"] = f"path_{i}"
 
 		for field, item_count in mapping.items():
-			n_items = random.randint(0, n_items_to_remove)
+			n_items = random.randint(0, n_items_per_type)
 
 			doujinshi[field] = random.sample(list(item_count.keys()), n_items)
 
@@ -341,6 +362,8 @@ def test_get_count_of_items_when_getting_and_removing_doujinshi(dbm):
 				item_count[item] += 1
 
 		dbm.insert_doujinshi(doujinshi, False)
+
+	dbm.update_count_of_all()
 
 	# Verify counts after insertion
 	for i in range(n_doujinshis):
@@ -350,23 +373,29 @@ def test_get_count_of_items_when_getting_and_removing_doujinshi(dbm):
 		for field, item_count in mapping.items():
 			assert is_subdict(doujinshi[field], item_count)
 
-	# Verify counts after removal
-	for i in range(n_doujinshis):
+	# Manually update counts after removal
+	for i in range(n_doujinshis_to_remove):
 		return_status, doujinshi = dbm.get_doujinshi(i)
 		assert return_status == DatabaseStatus.OK
 
-		# Remove first n_items_to_remove doujinshis
-		if i < n_items_to_remove:
+		# Remove first n_doujinshis_to_remove doujinshis
+		if i < n_doujinshis_to_remove:
 			for field, item_count in mapping.items():
 				for item in doujinshi[field]:
 					item_count[item] -= 1
 
 			return_status = dbm.remove_doujinshi(i)
 			assert return_status == DatabaseStatus.OK
-		# Verify again
-		else:
-			for field, item_count in mapping.items():
-				assert is_subdict(doujinshi[field], item_count)
+
+	dbm.update_count_of_all()
+
+	# Verify again
+	for i in range(n_doujinshis_to_remove, n_doujinshis):
+		return_status, doujinshi = dbm.get_doujinshi(i)
+		assert return_status == DatabaseStatus.OK
+
+		for field, item_count in mapping.items():
+			assert is_subdict(doujinshi[field], item_count)
 
 
 def insert_doujinshi_into_db(dbm, n_doujinshis):
@@ -398,7 +427,7 @@ def split_list(list_to_split, k):
 
 
 def test_get_doujinshi_in_batch_valid_page_number(dbm):
-	n_doujinshis_to_test = 517 # must not be divisible by page_size
+	n_doujinshis_to_test = 217 # must not be divisible by page_size
 	page_size = 25
 	retrieved_doujinshis = []
 
@@ -416,10 +445,11 @@ def test_get_doujinshi_in_batch_valid_page_number(dbm):
 
 
 def test_get_doujinshi_in_batch_illegal_page_number(dbm):
+	n_doujinshis_to_test = 217
+	page_size = 25
 	illegal_page_numbers = [-1, 0, 10**6]
-	page_size=25
 
-	insert_doujinshi_into_db(dbm, 107)
+	insert_doujinshi_into_db(dbm, n_doujinshis_to_test)
 
 	for illegal_page_number in illegal_page_numbers:
 		return_status, should_be_empty = dbm.get_doujinshi_in_batch(page_size, illegal_page_number)

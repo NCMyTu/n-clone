@@ -15,6 +15,7 @@ class Artist(Base):
 
 	id: Mapped[int] = mapped_column(Integer, primary_key=True)
 	name: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+	count: Mapped[int] = mapped_column(Integer, default=0)
 
 	doujinshis: Mapped[list["Doujinshi"]] = relationship(
 		"Doujinshi",

@@ -4,14 +4,14 @@ from typing import List, Optional
 
 from .database_status import DatabaseStatus
 from .logger import DatabaseLogger
-from .models import Artist, Base, Character, Doujinshi, Group, Language, Parody, Tag, Page, many_to_many_tables
+from .models import Artist, Base, Character, Doujinshi, Group, Language, Parody, Tag, Page
 from .models.many_to_many_tables import (
 	doujinshi_language as d_language, doujinshi_circle as d_circle, doujinshi_artist as d_artist,
 	doujinshi_tag as d_tag, doujinshi_character as d_character, doujinshi_parody as d_parody
 )
 from .utils import validate_doujinshi
-from sqlalchemy import create_engine, event, select, func
-from sqlalchemy import Integer, Text, DateTime
+from sqlalchemy import create_engine, event, select, func, update 
+from sqlalchemy import Integer, DateTime
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker, validates, selectinload, joinedload
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
@@ -388,16 +388,13 @@ class DatabaseManager:
 		return self._update_column_of_doujinshi(doujinshi_id, "path", pathlib.Path(value).as_posix())
 
 
-	def _get_count_by_name(self, model, many_to_many_table, col_to_join, values, session=None):
+	def _get_count_by_name(self, model, values, session=None):
 		if not values:
 			return DatabaseStatus.OK, {}
 
 		statement = (
-			select(model.name, func.count("*"))
-			.select_from(many_to_many_table)
-			.join(model, model.id == col_to_join)
+			select(model.name, model.count)
 			.where(model.name.in_(values))
-			.group_by(model.name)
 		)
 
 		try:
@@ -406,29 +403,31 @@ class DatabaseManager:
 			else:
 				with self.session() as session_in:
 					count_dict = dict(session_in.execute(statement).all())
+
+			# fill in missing ones with 0
 			return DatabaseStatus.OK, {name: count_dict.get(name, 0) for name in values}
+
 		except Exception as e:
 			self.logger.exception(DatabaseStatus.FATAL, e)
 			return DatabaseStatus.FATAL, {}
 
 
 	def get_count_of_parodies(self, values):
-		return self._get_count_by_name(Parody, d_parody, d_parody.c.parody_id, values)
+		return self._get_count_by_name(Parody, values)
 	def get_count_of_characters(self, values):
-		return self._get_count_by_name(Character, d_character, d_character.c.character_id,values)
+		return self._get_count_by_name(Character, values)
 	def get_count_of_tags(self, values):
-		return self._get_count_by_name(Tag, d_tag, d_tag.c.tag_id,values)
+		return self._get_count_by_name(Tag, values)
 	def get_count_of_artists(self, values):
-		return self._get_count_by_name(Artist, d_artist, d_artist.c.artist_id, values)
+		return self._get_count_by_name(Artist, values)
 	def get_count_of_groups(self, values):
-		return self._get_count_by_name(Group, d_circle, d_circle.c.circle_id, values)
+		return self._get_count_by_name(Group, values)
 	def get_count_of_languages(self, values):
-		return self._get_count_by_name(Language, d_language, d_language.c.language_id, values)
+		return self._get_count_by_name(Language, values)
 
 
 	def get_doujinshi(self, doujinshi_id):
 		# TODO: measure performance of joinedload and selectinload
-		#       log
 		with self.session() as session:
 			statement = (
 				select(Doujinshi)
@@ -461,24 +460,17 @@ class DatabaseManager:
 			djs_dict["pages"] = [p.filename for p in doujinshi.pages]
 
 			count = self._get_count_by_name
-			_, djs_dict["parodies"] = count(Parody, d_parody, d_parody.c.parody_id,
-				[p.name for p in doujinshi.parodies], session
-			)
-			_, djs_dict["characters"] = count(Character, d_character, d_character.c.character_id,
-				[c.name for c in doujinshi.characters], session
-			)
-			_, djs_dict["tags"] = count(Tag, d_tag, d_tag.c.tag_id,
-				[t.name for t in doujinshi.tags], session
-			)
-			_, djs_dict["artists"] = count(Artist, d_artist, d_artist.c.artist_id,
-				[a.name for a in doujinshi.artists], session
-			)
-			_, djs_dict["groups"] = count(Group, d_circle, d_circle.c.circle_id,
-				[g.name for g in doujinshi.groups], session
-			)
-			_, djs_dict["languages"] = count(Language, d_language, d_language.c.language_id,
-				[l.name for l in doujinshi.languages], session
-			)
+			relationships = {
+				"parodies": (Parody, doujinshi.parodies),
+				"characters": (Character, doujinshi.characters),
+				"tags": (Tag, doujinshi.tags),
+				"artists": (Artist, doujinshi.artists),
+				"groups": (Group, doujinshi.groups),
+				"languages": (Language, doujinshi.languages),
+			}
+			for key, (model, rel_objs) in relationships.items():
+				names = [obj.name for obj in rel_objs]
+				_, djs_dict[key] = count(model, names, session)
 
 			return DatabaseStatus.OK, djs_dict
 
@@ -517,4 +509,61 @@ class DatabaseManager:
 				return DatabaseStatus.FATAL, []
 
 
+	def _update_count(self, model, model_id_column, d_id_column, session):
+		subq = (
+			select(model_id_column, func.count(d_id_column).label("item_count"))
+			.group_by(model_id_column)
+			.subquery()
+		)
+		session.execute(update(model).values(count=0)) # in case model somehow has no doujinshi.
+		session.execute(
+			update(model)
+			.values(count=subq.c.item_count)
+			.where(model.id == subq.c[model_id_column.key])
+		)
+
+
+	def _update_count_by_item_type(self, model, model_id_column, d_id_column, session=None):
+		if session:
+			self._update_count(model, model_id_column, d_id_column, session)
+		else:
+			with self.session() as session:
+				try:
+					self._update_count(model, model_id_column, d_id_column, session)
+					session.commit()
+				except Exception as e:
+					self.logger.exception(DatabaseStatus.FATAL, e)
+					return DatabaseStatus.FATAL
+				else:
+					return DatabaseStatus.OK
+
+
+	def update_count_of_parody(self):
+		return self._update_count_by_item_type(Parody, d_parody.c.parody_id, d_parody.c.doujinshi_id)
+	def update_count_of_character(self):
+		return self._update_count_by_item_type(Character, d_character.c.character_id, d_character.c.doujinshi_id)
+	def update_count_of_tag(self):
+		return self._update_count_by_item_type(Tag, d_tag.c.tag_id, d_tag.c.doujinshi_id)
+	def update_count_of_artist(self):
+		return self._update_count_by_item_type(Artist, d_artist.c.artist_id, d_artist.c.doujinshi_id)
+	def update_count_of_group(self):
+		return self._update_count_by_item_type(Group, d_circle.c.circle_id, d_circle.c.doujinshi_id)
+	def update_count_of_language(self):
+		return self._update_count_by_item_type(Language, d_language.c.language_id, d_language.c.doujinshi_id)
+
+
+	def update_count_of_all(self):
+		params = [
+			(Parody, d_parody.c.parody_id, d_parody.c.doujinshi_id),
+			(Character, d_character.c.character_id, d_character.c.doujinshi_id),
+			(Tag, d_tag.c.tag_id, d_tag.c.doujinshi_id),
+			(Artist, d_artist.c.artist_id, d_artist.c.doujinshi_id),
+			(Group, d_circle.c.circle_id, d_circle.c.doujinshi_id),
+			(Language, d_language.c.language_id, d_language.c.doujinshi_id),
+		]
+		with self.session() as session:
+			for model, model_id_column, d_id_column in params:
+				self._update_count_by_item_type(model, model_id_column, d_id_column, session)
+			session.commit()
+			return DatabaseStatus.OK
 	# def export_to_json(self):

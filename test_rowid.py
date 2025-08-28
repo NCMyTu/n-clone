@@ -5,8 +5,9 @@ import random
 import time
 from types import SimpleNamespace
 from itertools import islice
-from sqlalchemy import insert
+from sqlalchemy import insert, text, select, func, inspect
 from sqlalchemy.exc import IntegrityError
+
 
 # {item_name: [id_in_db, count]}
 PARODIES = {f"parody_{i}": [i, 0] for i in range(1, 10)}
@@ -121,7 +122,8 @@ def batch_insert_doujinshi(dbm, d_generator, batch_size):
 
 				session.commit()
 			except IntegrityError:
-				raise
+				session.rollback()
+				continue # to continue generate batches
 			except Exception:
 				raise
 		elapsed = time.perf_counter() - start
@@ -154,26 +156,38 @@ if __name__ == "__main__":
 	dbm.logger.disable()
 	dbm.create_database()
 
-	try:
-		batch_insert_model(dbm, Parody, PARODIES)
-		batch_insert_model(dbm, Character, CHARACTERS)
-		batch_insert_model(dbm, Tag, TAGS)
-		batch_insert_model(dbm, Artist, ARTISTS)
-		batch_insert_model(dbm, Group, GROUPS)
-	except IntegrityError:
-		print("Database exists. Continue...")
-	except Exception as e:
-		raise ValueError(f"Unexpected exception when inserting model.\n{e}")
+	# try:
+	# 	batch_insert_model(dbm, Parody, PARODIES)
+	# 	batch_insert_model(dbm, Character, CHARACTERS)
+	# 	batch_insert_model(dbm, Tag, TAGS)
+	# 	batch_insert_model(dbm, Artist, ARTISTS)
+	# 	batch_insert_model(dbm, Group, GROUPS)
+	# except IntegrityError:
+	# 	print("Database exists. Continue...")
+	# except Exception as e:
+	# 	raise ValueError(f"Unexpected exception when inserting model.\n{e}")
 	
-	try:
-		batch_insert_doujinshi(dbm, d_gen, insert_batch_size)
-	except IntegrityError:
-		print("Database exists. Continue...")
-	except Exception as e:
-		raise ValueError(f"Unexpected exception when inserting doujinshi.\n{e}")
+	# try:
+	# 	batch_insert_doujinshi(dbm, d_gen, insert_batch_size)
+	# except IntegrityError:
+	# 	print("Database exists. Continue...")
+	# except Exception as e:
+	# 	raise ValueError(f"Unexpected exception when inserting doujinshi.\n{e}")
 
-	start = time.perf_counter()
-	return_status, lang_count = dbm.get_count_of_languages(list(LANGUAGES.keys()))
-	print(time.perf_counter() - start)
-	print(lang_count)
-	print(LANGUAGES)
+	# start = time.perf_counter()
+	# dbm.update_count_of_all()
+	# print("Update all count took ", time.perf_counter() - start)
+
+	with dbm.session() as session:
+		for i in range(10):
+			start = time.perf_counter()
+			return_status, db_count = dbm.get_count_of_languages(list(LANGUAGES.keys()))
+			print("no index, ", time.perf_counter() - start, db_count)
+
+
+
+		print("LANGUAGES: ", LANGUAGES)
+
+		statement = text("PRAGMA index_list('doujinshi_language');")
+		count = session.execute(statement).all()
+		print("\n", count)

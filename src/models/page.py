@@ -9,7 +9,7 @@ from sqlalchemy.orm import mapped_column
 from sqlalchemy.orm import relationship
 
 
-PAGE_SQLITE_WITH_ROWID = True
+PAGE_SQLITE_WITH_ROWID = False
 
 
 class Page(Base):

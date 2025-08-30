@@ -10,7 +10,7 @@ from .models.many_to_many_tables import (
 	doujinshi_tag as d_tag, doujinshi_character as d_character, doujinshi_parody as d_parody
 )
 from .utils import validate_doujinshi
-from sqlalchemy import create_engine, event, select, func, update 
+from sqlalchemy import create_engine, event, select, func, update, text
 from sqlalchemy import Integer, DateTime
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker, validates, selectinload, joinedload
@@ -35,6 +35,10 @@ class DatabaseManager:
 		self.logger = DatabaseLogger(name=self.__class__.__name__, log_path=log_path)
 
 
+	def session(self):
+		return self._session()
+
+
 	def create_database(self):
 		Base.metadata.create_all(self.engine)
 		self.insert_language("english")
@@ -44,8 +48,42 @@ class DatabaseManager:
 		return DatabaseStatus.OK
 
 
-	def session(self):
-		return self._session()
+	def _idx_tbl_name(self, tbl_name):
+		return f"idx_doujinshi_{tbl_name}__{tbl_name}_doujinshi"
+
+	def create_index(self):
+		# WARNING: Harcoded. Be careful when the underlying models change.
+		table_names = ["parody", "character", "tag", "artist", "circle", "language"]
+		prefix = "CREATE INDEX IF NOT EXISTS"
+
+		with self.session() as session:
+			for tbn in table_names:
+				statement = f"{prefix} {self._idx_tbl_name(tbn)} ON doujinshi_{tbn}({tbn}_id, doujinshi_id)"
+				session.execute(text(statement))
+			session.commit()
+			return DatabaseStatus.OK
+
+
+	def drop_index(self):
+		# WARNING: Harcoded. Be careful when the underlying models change.
+		table_names = ["parody", "character", "tag", "artist", "circle", "language"]
+		prefix = "DROP INDEX IF EXISTS"
+
+		with self.session() as session:
+			for tbn in table_names:
+				statement = f"{prefix} {self._idx_tbl_name(tbn)}"
+				session.execute(text(statement))
+			session.commit()
+			return DatabaseStatus.OK
+
+
+	def show_index(self):
+		with self.session() as session:
+			results = session.execute(
+				text("SELECT name, tbl_name, sql FROM sqlite_master WHERE type='index';")
+			).all()
+			for name, tbl_name, sql in results:
+				print(f"Index: {name}, Table: {tbl_name}, SQL: {sql}")
 
 
 	@event.listens_for(Engine, "connect")
@@ -57,7 +95,7 @@ class DatabaseManager:
 
 		cursor = dbapi_connection.cursor()
 		cursor.execute("PRAGMA foreign_keys = ON;")
-		cursor.execute("PRAGMA cache_size = -5000;") # 5MB
+		# cursor.execute("PRAGMA cache_size = -5000;") # 5MB
 		cursor.close()
 
 		# restore previous autocommit setting

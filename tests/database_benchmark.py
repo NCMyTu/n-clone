@@ -273,7 +273,7 @@ if __name__ == "__main__":
 
 	print(db_path)
 
-	dbm.drop_index()
+	# dbm.drop_index()
 	# dbm.create_index()
 	dbm.show_index()
 

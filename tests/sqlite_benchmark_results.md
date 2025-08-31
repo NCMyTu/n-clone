@@ -4,23 +4,23 @@ Summarize database performance benchmarks. As the title suggests, this is specif
 ---
 
 ## Some definitions
-* Doujinshi: You know.
-* Item type: One of these: `Parody`, `Character`, `Tag`, `Artist`, `Group`, `Language`, `Page`.
-* Item: An instance of an item type.
-* Extra index: A manually created index (`{item_type_id}, doujinshi_id`) on many-to-many table (`doujinshi_{item_type}`) as opposed to the automatically created index (`doujinshi_id, {item_type_id}`).
-* **Note**: the underlying name of `Group` is `circle` to avoid reserved keyword in SQLite.
+* `Doujinshi`: You know.
+* `Item type`: One of these: `Parody`, `Character`, `Tag`, `Artist`, `Group`, `Language`, `Page`.
+* `Item`: An instance of an item type.
+* `Extra index`: A manually created index (`{item_type_id}, doujinshi_id`) on many-to-many table (`doujinshi_{item_type}`) as opposed to the automatically created index (`doujinshi_id, {item_type_id}`).
+* **Note**: the underlying name of `Item type` `Group` is `circle` to avoid reserved keyword in SQLite.
 
 ---
 
 ## 1. Insert doujinshi
-* Insert 1,000,000 randomly generated (with fixed seed) doujinshi in batches of 10,000.
+* Insert 1,000,000 randomly generated (with fixed seed) `doujinshi` in batches of 10,000.
 * Number of items by type:  
-  * `Parody`, `Tag`, `Character`, `Artist`, and `Group`: 500 items each.
-  * `Language`: 4 items.
-  * `Page`: up to 250 items per doujinshi.
+  * `Parody`, `Tag`, `Character`, `Artist`, and `Group`: 500 each.
+  * `Language`: 4.
+  * `Page`: up to 250 per `doujinshi`.
 * Item distribution by type:  
-  * Each item type (except `Page`) has a 97% chance to sample without replacement a random number of items from **base_min** up to **base_max**, and a 3% chance to sample without replacement a random number of items from **rare_max** up to the total number of items.
-  * `Page` has an 85% chance to sample the number of pages from a Gaussian distribution with mean 25 and stddev 7, and a 15% chance to sample from a Gaussian distribution with mean 200 and stddev 50. The number of pages is clamped between 1 and 250.
+  * Each `item type` (except `Page`) has a **97%** chance to sample without replacement a random number of items from **base_min** up to **base_max**, and a **3%** chance to sample without replacement a random number of items from **rare_max** up to the total number of items.
+  * `Page` has an **85%** chance to sample the number of pages from a Gaussian distribution with **mean 25** and **stddev 7**, and a **15%** chance with **mean 200** and **stddev 50**. The number of pages is **clamped** between **1** and **250**.
 
 | Item type | base_min | base_max | rare_max |
 |-----------|---------:|---------:|---------:|
@@ -32,15 +32,16 @@ Summarize database performance benchmarks. As the title suggests, this is specif
 | Language  | 1 | 1  | 2   |
 
 * Results:
-  * **Note**: Doujinshi and items are inserted directly into the database using IDs (so no duplicate or violation checks are performed). Therefore, insert time is faster than when using the actual insert method provided by `DatabaseManager`, which will be slower due to validation overhead.
-  * Insert time is not shown for configurations with an extra index, since indexes can just be created after insertion ~~(definitely not because i don't have the patience to wait another 1000+ minutes)~~.
+  * **Note**: `Doujinshi` and `items` are inserted directly into the database using IDs (so no duplicate or violation checks are performed). Therefore, insert time is faster than when using the actual insert method provided by `DatabaseManager`, which will be slower due to validation overhead.
+  * File size is calculated after running the command `VACUUM`.
+  * Insert time is not shown for configurations with `extra index`, since indices can just be created after insertion (definitely not because I don't have the patience to wait another 1000+ seconds).
 
-| Configuration                 | File size | Insert time (s) |
+| Configuration                 | File size (gb) | Insert time (s) |
 |-------------------------------|----------:|--------:|
-| With ROWID, no extra index    | 4.9111 GB | 1099.15 |
-| With ROWID, extra index       | 5.6435 GB |         |
-| Without ROWID, no extra index | 2.7552 GB | 1046.06 |
-| Without ROWID, extra index    | 3.2811 GB |         |
+| With ROWID, no extra index    | 4.9111 | 1099.15 |
+| With ROWID, extra index       | 5.6435 |         |
+| Without ROWID, no extra index | 2.7552 | 1046.06 |
+| Without ROWID, extra index    | 3.2811 |         |
 
 * Number of rows inserted:
 
@@ -55,11 +56,13 @@ Summarize database performance benchmarks. As the title suggests, this is specif
 | page                | 50,089,160 |
 | **Total**           | **102,157,978** |
 
+> **TLDR**: ROWID tables are ~2 GB larger than WITHOUT ROWID, but insertion times are comparable.
+
 ---
 
-## 2. Update All Counts
-* Mesure in **seconds** how long it takes to count how many doujinshi each item type has.
-* Run `n_times` times.
+## 2. update_count_of_all
+* Mesure in **seconds** how long it takes to count how many `doujinshi` each `item type` has.
+* Run **n_times** times.
 * Results:
 
 | Configuration                 | n_times | min | max | avg |
@@ -69,55 +72,61 @@ Summarize database performance benchmarks. As the title suggests, this is specif
 | Without ROWID, no extra index | 10  | 16.55 | 20.44 | 18.25 |
 | Without ROWID, extra index    | 100 | 2.67  | 6.60  | 3.05  |
 
+> **TLDR**: Extra index is critical.
+
 ---
 
-## 3. Get Doujinshi
-* Measure in **microseconds** how long it takes to get info of 1 doujinshi from database.
-* Report metrics: average (`avg`), 95th percentile (`p95`), 99th percentile (`p99`).
-* Each run has a warm-up: fetch 20 doujinshi at evenly spaced IDs from 1 to 1,000,000, then run Predictable Access and Random Access in that order. The results below are sorted for clarity, not shown in the exact order the benchmark runs.
+## 3. get_doujinshi
+* Measure in **miliseconds** how long it takes to retrieve 1 `doujinshi` from database.
+* Report metrics: average (**avg**), 95th percentile (**p95**), 99th percentile (**p99**).
+* Each run has a warm-up: fetch **20** `doujinshi` at evenly spaced IDs from 1 to 1,000,000, then run **Predictable Access** or **Random Access**.
 
 ### Predictable access
-* Fetch 500 doujinshi starting from `id_start`, with step size `step`.
+* Fetch **1,000** `doujinshi` starting from **id_start**, with step size **step**.
 * Results:
 
-| Configuration | id_start | step | avg | p95 | p99 |
-|---|---:|---:|---:|---:|---:|
-| With ROWID, no extra index | 17,000 | 2 | 6.57 | 10.13 | 14.11 |
-|  | 510,001 | 5 | 6.52 | 9.70 | 12.63 |
-|  | 987,172 | 7 | 6.60 | 10.31 | 13.38 |
-|  |  | **Overall** | **6.56** | **10.06** | **13.28** |
-| With ROWID, extra index | 17,000 | 2 | 6.56 | 10.26 | 14.48 |
-|  | 510,001 | 5 | 6.50 | 9.78 | 13.04 |
-|  | 987,172 | 7 | 6.59 | 10.25 | 13.75 |
-|  |  | **Overall** | **6.55** | **10.16** | **13.92** |
-| Without ROWID, no extra index | 17,000 | 2 | 7.21 | 11.28 | 15.09 |
-|  | 510,001 | 5 | 7.01 | 10.73 | 14.50 |
-|  | 987,172 | 7 | 7.07 | 11.13 | 16.39 |
-|  |  | **Overall** | **7.10** | **11.00** | **15.41** |
-| Without ROWID, extra index | 17,000 | 2 | 7.06 | 10.78 | 14.31 |
-|  | 510,001 | 5 | 7.60 | 11.69 | 17.25 |
-|  | 987,172 | 7 | 7.20 | 11.17 | 15.27 |
-|  |  | **Overall** | **7.28** | **11.32** | **15.91** |
+| Configuration | id_start | step | avg | p50 | p95 | p99 |
+|---------------|---------:|-----:|----:|----:|----:|----:|
+| With ROWID, no extra index | 3,000   | 2 | 6.87 | 6.29 | 10.68 | 13.56 |
+|                            | 499,799 | 4 | 6.75 | 6.19 | 10.66 | 13.28 |
+|                            | 975,172 | 7 | 6.83 | 6.22 | 11.17 | 13.91 |
+| |  | **Overall**                         | **6.82** | **6.24** | **10.79** | **13.91** |
+| With ROWID, extra index | 3,000   | 2 | 6.47 | 5.84 | 10.50 | 13.54 |
+|                         | 499,799 | 4 | 6.57 | 5.98 | 10.69 | 13.89 |
+|                         | 975,172 | 7 | 6.85 | 6.16 | 11.03 | 13.89 |
+|  |  | **Overall**                     | **6.63** | **6.01** | **10.76** | **13.54** |
+| Without ROWID, no extra index | 3,000   | 2 | 6.76 | 5.85 | 10.77 | 14.74 |
+|                               | 499,799 | 4 | 6.70 | 5.92 | 10.57 | 14.16 |
+|                               | 975,172 | 7 | 6.97 | 6.13 | 11.01 | 14.59 |
+|  |  | **Overall**                           | **6.81** | **5.96** | **10.88** | **14.70** |
+| Without ROWID, extra index | 3,000   | 2 | 6.99 | 6.11 | 10.88 | 16.21 |
+|                            | 499,799 | 4 | 6.99 | 6.14 | 11.04 | 14.71 |
+|                            | 975,172 | 7 | 6.81 | 6.00 | 10.75 | 14.03 |
+|  |  | **Overall**                        | **6.93** | **6.09** | **10.90** | **15.14** |
 
 ### Random access
-* Fetch 500 random doujinshi between `id_start` and `id_end`.
+* Fetch **1,000** random `doujinshi` between **id_start** and **id_end**.
 * Results:
 
-| Configuration | id_start | id_end | avg | p95 | p99 |
-|---|---|:---:|---|---|---|
-| With ROWID, no extra index | 100 | 50,000 | 6.69 | 10.74 | 12.28 |
-|  | 470,011 | 610,010 | 6.68 | 10.75 | 12.15 |
-|  | 700,001 | 1,000,000 | 6.70 | 10.57 | 12.63 |
-|  |  | **Overall** | **6.69** | **10.74** | **12.30** |
-| With ROWID, extra index | 100 | 50,000 | 6.72 | 10.82 | 12.24 |
-|  | 470,011 | 610,010 | 6.95 | 11.30 | 15.44 |
-|  | 700,001 | 1,000,000 | 6.58 | 10.42 | 11.93 |
-|  |  | **Overall** | **6.75** | **10.90** | **12.63** |
-| Without ROWID, no extra index | 100 | 50,000 | 7.36 | 11.77 | 14.32 |
-|  | 470,011 | 610,010 | 7.51 | 12.01 | 15.47 |
-|  | 700,001 | 1,000,000 | 7.52 | 11.68 | 15.66 |
-|  |  | **Overall** | **7.47** | **11.84** | **15.28** |
-| Without ROWID, extra index | 100 | 50,000 | 7.70 | 12.16 | 15.00 |
-|  | 470,011 | 610,010 | 7.48 | 11.86 | 15.28 |
-|  | 700,001 | 1,000,000 | 7.57 | 11.60 | 16.51 |
-|  |  | **Overall** | **7.59** | **11.90** | **15.55** |
+| Configuration | id_start | id_end | avg | p50 | p95 | p99 |
+|---------------|---------:|-------:|----:|----:|----:|----:|
+| With ROWID, no extra index | 100     | 50,000    | 6.47 | 5.93 | 10.37 | 13.13 |
+|                            | 470,011 | 610,010   | 6.55 | 5.98 | 10.48 | 13.10 |
+|                            | 700,001 | 1,000,000 | 6.77 | 6.21 | 10.69 | 13.58 |
+|  |  | **Overall**                                | **6.60** | **6.02** | **10.50** | **13.34** |
+| With ROWID, extra index | 100     | 50,000    | 6.76 | 6.10 | 10.87 | 14.68 |
+|                         | 470,011 | 610,010   | 6.69 | 6.07 | 10.64 | 14.93 |
+|                         | 700,001 | 1,000,000 | 6.55 | 6.09 | 10.15 | 12.49 |
+|  |  | **Overall**                             | **6.67** | **6.09** | **10.62** | **14.10** |
+| Without ROWID, no extra index | 100     | 50,000    | 7.09 | 6.19 | 10.91 | 13.83 |
+|                               | 470,011 | 610,010   | 7.59 | 6.46 | 12.33 | 18.49 |
+|                               | 700,001 | 1,000,000 | 7.27 | 6.42 | 11.00 | 15.83 |
+|  |  | **Overall**                                   | **7.32** | **6.36** | **11.47** | **15.98** |
+| Without ROWID, extra index | 100     | 50,000    | 6.97 | 6.03 | 10.98 | 13.94 |
+|                            | 470,011 | 610,010   | 7.23 | 6.31 | 11.35 | 16.20 |
+|                            | 700,001 | 1,000,000 | 7.56 | 6.57 | 12.01 | 16.39 |
+|  |  | **Overall**                                | **7.25** | **6.33** | **11.51** | **15.52** |
+
+* **Note**: Results vary significantly between runs. Measurements with **1,000** iterations differ from those with **10,000**, and even repeated **1,000**-run tests produce inconsistent results. This kind of benchmark is not reliable.
+
+> **TLDR**: Differences between configs are small.

@@ -36,6 +36,15 @@ def convert_to_ms(durations):
 	return [d * 1000 for d in durations]
 
 
+def get_stats(durations):
+	return {
+		"avg": sum(durations) / len(durations),
+		"p50": np.percentile(durations, 50),
+		"p95": np.percentile(durations, 95),
+		"p99": np.percentile(durations, 99)
+	}
+
+
 def pick_random_items(table, type):
 	if type == "tag":
 		base_min, base_max = 0, 15
@@ -201,57 +210,54 @@ def batch_insert_model(dbm, model, data):
 			raise
 
 
-def benchmark_get_doujinshi(dbm, n_times):
-	def get_stats(durations):
-		return {
-			"avg": sum(durations) / len(durations),
-			"p95": np.percentile(durations, 95),
-			"p99": np.percentile(durations, 99),
-		}
+def _benchmark_get_doujinshi_predictable(dbm, id_start, step, n_times):
+	durations = []
+	for doujinshi_id in range(id_start, id_start + step * n_times, step):
+		start = time.perf_counter()
+		dbm.get_doujinshi(doujinshi_id)
+		durations.append(time.perf_counter() - start)
+	return convert_to_ms(durations)
 
-	def _benchmark_predictable(dbm, id_start, step, n_times):
-		durations = []
-		for doujinshi_id in range(id_start, id_start + step * n_times, step):
-			start = time.perf_counter()
-			dbm.get_doujinshi(doujinshi_id)
-			durations.append(time.perf_counter() - start)
-		return convert_to_ms(durations)
 
-	def _benchmark_random(dbm, id_min, id_max, n_times, random_state=2):
-		random.seed(random_state)
-		durations = []
-		for _ in range(n_times):
-			doujinshi_id = random.randint(id_min, id_max)
-			start = time.perf_counter()
-			dbm.get_doujinshi(doujinshi_id)
-			durations.append(time.perf_counter() - start)
-		return convert_to_ms(durations)
+def _benchmark_get_doujinshi_random(dbm, id_min, id_max, n_times, random_state=2):
+	random.seed(random_state)
+	durations = []
+	for _ in range(n_times):
+		doujinshi_id = random.randint(id_min, id_max)
+		start = time.perf_counter()
+		dbm.get_doujinshi(doujinshi_id)
+		durations.append(time.perf_counter() - start)
+	return convert_to_ms(durations)
 
+
+def benchmark_get_doujinshi(dbm, n_times, mode):
 	warmup_id_range = [int(i * 1_000_000 / 19) for i in range(20)]
 	warmup_id_range[0] = 1
 	for doujinshi_id in warmup_id_range:
 		dbm.get_doujinshi(doujinshi_id)
 	print(f"Warmed up for {len(warmup_id_range)} rounds.")
 
-	print("-----Predictable access-----")
-	durations = []
-	for doujinshi_id, step in [(17_000, 2), (510_001, 5), (987_172, 7)]:
-		_durations = _benchmark_predictable(dbm, doujinshi_id, step, n_times)
-		stats = get_stats(_durations)
-		print(f"id: {doujinshi_id}, step: {step}, avg: {stats['avg']:.2f}ms, p95: {stats['p95']:.2f}ms, p99: {stats['p99']:.2f}ms")
-		durations.extend(_durations)
-	stats = get_stats(durations)
-	print(f"Overall, avg: {stats['avg']:.2f}ms, p95: {stats['p95']:.2f}ms, p99: {stats['p99']:.2f}ms")
+	if mode == "predictable":
+		print("-----Predictable access-----")
+		durations = []
+		for doujinshi_id, step in [(3_000, 2), (499_799, 4), (975_172, 7)]:
+			_durations = _benchmark_get_doujinshi_predictable(dbm, doujinshi_id, step, n_times)
+			stats = get_stats(_durations)
+			print(f"id: {doujinshi_id}, step: {step}, avg: {stats['avg']:.2f}ms, p50: {stats['p50']:.2f}ms, p95: {stats['p95']:.2f}ms, p99: {stats['p99']:.2f}ms")
+			durations.extend(_durations)
+		stats = get_stats(durations)
+		print(f"Overall, avg: {stats['avg']:.2f}ms, p50: {stats['p50']:.2f}ms, p95: {stats['p95']:.2f}ms, p99: {stats['p99']:.2f}ms")
 
-	print("-----Random access-----")
-	durations = []
-	for id_range in [(100, 50_000), (470_011, 610_010), (700_001, 1_000_000)]:
-		_durations = _benchmark_random(dbm, id_range[0], id_range[1], n_times)
-		stats = get_stats(_durations)
-		print(f"range: {id_range[0]}–{id_range[1]}, avg: {stats['avg']:.2f}ms, p95: {stats['p95']:.2f}ms, p99: {stats['p99']:.2f}ms")
-		durations.extend(_durations)
-	stats = get_stats(durations)
-	print(f"Overall, avg: {stats['avg']:.2f}ms, p95: {stats['p95']:.2f}ms, p99: {stats['p99']:.2f}ms")
+	if mode == "random":
+		print("-----Random access-----")
+		durations = []
+		for id_range in [(100, 50_000), (470_011, 610_010), (700_001, 1_000_000)]:
+			_durations = _benchmark_get_doujinshi_random(dbm, id_range[0], id_range[1], n_times)
+			stats = get_stats(_durations)
+			print(f"range: {id_range[0]}–{id_range[1]}, avg: {stats['avg']:.2f}ms, p50: {stats['p50']:.2f}ms, p95: {stats['p95']:.2f}ms, p99: {stats['p99']:.2f}ms")
+			durations.extend(_durations)
+		stats = get_stats(durations)
+		print(f"Overall, avg: {stats['avg']:.2f}ms, p50: {stats['p50']:.2f}ms, p95: {stats['p95']:.2f}ms, p99: {stats['p99']:.2f}ms")
 
 
 if __name__ == "__main__":
@@ -260,9 +266,12 @@ if __name__ == "__main__":
 	with_rowid_path = "tests/db/1M_rowid.db.sqlite"
 	without_rowid_path = "tests/db/1M_without_rowid.db.sqlite"
 
-	dbm = DatabaseManager(url=f"sqlite:///{without_rowid_path}", log_path="tests/db/1M.log", echo=False)
+	db_path = with_rowid_path
+	dbm = DatabaseManager(url=f"sqlite:///{db_path}", log_path="tests/db/1M.log", echo=False)
 	dbm.logger.disable()
 	dbm.create_database()
+
+	print(db_path)
 
 	dbm.drop_index()
 	# dbm.create_index()
@@ -307,14 +316,5 @@ if __name__ == "__main__":
 	# 	print(f"{db_type}: {size / (1024**3):.4f}GB")
 
 	# TODO: benchmark insert doujinshi, get_doujinshi and get_doujinshi_in_batch
-	# benchmark_get_doujinshi(dbm, 500)
-
-	with dbm.session() as session:
-		table_names = [
-			"doujinshi_parody", "doujinshi_character", "doujinshi_tag",
-			"doujinshi_artist", "doujinshi_circle", "doujinshi_language",
-			"page"
-		]
-		for tbn in table_names:
-			print(tbn, end=", ")
-			print(session.scalar(text(f"SELECT COUNT(*) FROM {tbn}")))
+	# benchmark_get_doujinshi(dbm, 1_000, "predictable")
+	# benchmark_get_doujinshi(dbm, 1_000, "random")

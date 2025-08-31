@@ -14,4 +14,4 @@ python -m tests.database_benchmark
 ```
 
 ## View Benchmark Report
-See the benchmark results [here](sqlite_benchmark_results).
+See the benchmark results [here](sqlite_benchmark_results.md).

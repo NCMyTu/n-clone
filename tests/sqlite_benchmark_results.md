@@ -21,6 +21,7 @@ Summarize database performance benchmarks. As the title suggests, this is specif
 * Item distribution by type:  
   * Each `item type` (except `Page`) has a **97%** chance to sample without replacement a random number of items from **base_min** up to **base_max**, and a **3%** chance to sample without replacement a random number of items from **rare_max** up to the total number of items.
   * `Page` has an **85%** chance to sample the number of pages from a Gaussian distribution with **mean 25** and **stddev 7**, and a **15%** chance with **mean 200** and **stddev 50**. The number of pages is **clamped** between **1** and **250**.
+* Run with these flags: {UPDATE HERE}
 
 | Item type | base_min | base_max | rare_max |
 |-----------|---------:|---------:|---------:|
@@ -130,3 +131,12 @@ Summarize database performance benchmarks. As the title suggests, this is specif
 * **Note**: Results vary significantly between runs. Measurements with **1,000** iterations differ from those with **10,000**, and even repeated **1,000**-run tests produce inconsistent results. This kind of benchmark is not reliable.
 
 > **TLDR**: Differences between configs are small.
+
+## 4. get_doujinshi_in_batch
+* **page_size** = 25
+* Mesure in **seconds** how long it takes to fetch  **page_size** `doujinshi`.
+* Run 100 times.
+* Result: {'avg': 1.887381292000009, 'p50': np.float64(1.861399349999374), 'p95': np.float64(2.0939329650003855), 'p99': np.float64(2.2828083730000346)}
+
+## 5. Insert 1 doujinshi
+* Result: avg: 21.88ms, p50: 15.04ms, p95: 47.21ms, p99: 69.16ms

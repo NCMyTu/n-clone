@@ -327,7 +327,7 @@ if __name__ == "__main__":
 	with_rowid_path = "tests/db/1M_rowid.db.sqlite"
 	without_rowid_path = "tests/db/1M_without_rowid.db.sqlite"
 
-	db_path = with_rowid_path
+	db_path = without_rowid_path
 	print(db_path, "\n", "-" * 30)
 
 	dbm = DatabaseManager(url=f"sqlite:///{db_path}", log_path="tests/db/1M.log", echo=False)
@@ -389,16 +389,22 @@ if __name__ == "__main__":
 	# benchmark_get_doujinshi(dbm, 1_000, "random")
 
 	# ----------------------------
-	# durations = []
-	# page_size = 25
+	durations = []
+	page_size = 25
 
-	# for i in range(100):
-	# 	page_number = random.randint(1, n_doujinshis//page_size)
-	# 	start = time.perf_counter()
-	# 	doujinshi_batch = dbm.get_doujinshi_in_batch(page_size, page_number)
-	# 	durations.append(time.perf_counter() - start)
-	# stats = get_stats(durations)
-	# print(stats)
+	# Last 100 pages only since first pages are always the fastest.
+	# Consider using ASC insted of DESC when page_number > n_pages / 2.
+	last_page = n_doujinshis // page_size
+	page_range = list(range(last_page - 100, last_page + 1))
+	random.shuffle(page_range)
+
+	for page_number in page_range:
+		start = time.perf_counter()
+		_, doujinshi_batch = dbm.get_doujinshi_in_batch(page_size, page_number)
+		durations.append(time.perf_counter() - start)
+	stats = get_stats(durations)
+	print(stats)
+
 
 	# ----------------------------
-	benchmark_insert_doujinshi(dbm, 1000)
+	# benchmark_insert_doujinshi(dbm, 1000)

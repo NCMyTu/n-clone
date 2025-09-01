@@ -48,30 +48,33 @@ class DatabaseManager:
 		return DatabaseStatus.OK
 
 
-	def _idx_tbl_name(self, tbl_name):
-		return f"idx_doujinshi_{tbl_name}__{tbl_name}_doujinshi"
+	def _idx_components(self):
+		# WARNING: Harcoded. Be careful when the underlying models change.
+		return [
+			# (index name, on clause)
+			("idx_doujinshi_parody__parody_doujinshi", "doujinshi_parody(parody_id, doujinshi_id)"),
+			("idx_doujinshi_character__character_doujinshi", "doujinshi_character(character_id, doujinshi_id)"),
+			("idx_doujinshi_tag__tag_doujinshi", "doujinshi_tag(tag_id, doujinshi_id)"),
+			("idx_doujinshi_artist__artist_doujinshi", "doujinshi_artist(artist_id, doujinshi_id)"),
+			("idx_doujinshi_circle__circle_doujinshi", "doujinshi_circle(circle_id, doujinshi_id)"),
+			("idx_doujinshi_language__language_doujinshi", "doujinshi_language(language_id, doujinshi_id)"),
+			# ("idx_doujinshi_id_desc", "doujinshi(id DESC)")
+		]
+
 
 	def create_index(self):
-		# WARNING: Harcoded. Be careful when the underlying models change.
-		table_names = ["parody", "character", "tag", "artist", "circle", "language"]
-		prefix = "CREATE INDEX IF NOT EXISTS"
-
 		with self.session() as session:
-			for tbn in table_names:
-				statement = f"{prefix} {self._idx_tbl_name(tbn)} ON doujinshi_{tbn}({tbn}_id, doujinshi_id)"
+			for idx_name, on_clause in self._idx_components():
+				statement = f"CREATE INDEX IF NOT EXISTS {idx_name} ON {on_clause}"
 				session.execute(text(statement))
 			session.commit()
 			return DatabaseStatus.OK
 
 
 	def drop_index(self):
-		# WARNING: Harcoded. Be careful when the underlying models change.
-		table_names = ["parody", "character", "tag", "artist", "circle", "language"]
-		prefix = "DROP INDEX IF EXISTS"
-
 		with self.session() as session:
-			for tbn in table_names:
-				statement = f"{prefix} {self._idx_tbl_name(tbn)}"
+			for idx_name, _ in self._idx_components():
+				statement = f"DROP INDEX IF EXISTS {idx_name}"
 				session.execute(text(statement))
 			session.commit()
 			return DatabaseStatus.OK
@@ -518,20 +521,31 @@ class DatabaseManager:
 			return DatabaseStatus.OK, []
 
 		doujinshi_list = []
+		offset = (page_number - 1) * page_size
 
 		with self.session() as session:
 			try:
-				offset = (page_number - 1) * page_size
-				statement = (
-					select(Doujinshi.id, Doujinshi.full_name, Doujinshi.path, Page.filename)
-					.join(Page, Doujinshi.id == Page.doujinshi_id)
-					.order_by(Doujinshi.id.desc())
+				subq = (
+					select(Page.filename)
 					.where(Page.doujinshi_id == Doujinshi.id)
 					.where(Page.order_number == 1)
+					.scalar_subquery()
+				)
+				statement = (
+					select(Doujinshi.id, Doujinshi.full_name, Doujinshi.path, subq.label("filename"))
+					.order_by(Doujinshi.id.desc())
 					.offset(offset)
 					.limit(page_size)
 				)
 				results = session.execute(statement).all()
+
+				# print(f"{"-"*10}STATEMENT{"-"*10}\n{statement}\n{"-"*10}")
+				# compiled = statement.compile(compile_kwargs={"literal_binds": True})
+				# print("-" * 10)
+				# plans = session.execute(text(f"EXPLAIN QUERY PLAN {compiled}")).all()
+				# for plan in plans:
+				# 	print(plan)
+				# print("-" * 10)
 
 				for doujinshi_id, full_name, path, cover_filename in results:
 					doujinshi_list.append({

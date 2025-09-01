@@ -532,7 +532,12 @@ class DatabaseManager:
 					.scalar_subquery()
 				)
 				statement = (
-					select(Doujinshi.id, Doujinshi.full_name, Doujinshi.path, subq.label("filename"))
+					select(
+						Doujinshi.id,
+						Doujinshi.full_name,
+						Doujinshi.path,
+						subq.label("filename")
+					)
 					.order_by(Doujinshi.id.desc())
 					.offset(offset)
 					.limit(page_size)

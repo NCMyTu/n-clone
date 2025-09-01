@@ -62,7 +62,7 @@ Summarize database performance benchmarks. As the title suggests, this is specif
 ---
 
 ## 2. update_count_of_all
-* Mesure in **seconds** how long it takes to count how many `doujinshi` each `item type` has.
+* Measure in **seconds** how long it takes to count how many `doujinshi` each `item type` has.
 * Run **n_times** times.
 * Results:
 
@@ -78,7 +78,7 @@ Summarize database performance benchmarks. As the title suggests, this is specif
 ---
 
 ## 3. get_doujinshi
-* Measure in **miliseconds** how long it takes to retrieve 1 `doujinshi` from database.
+* Measure in **milliseconds** how long it takes to retrieve 1 `doujinshi` from database.
 * Report metrics: average (**avg**), 95th percentile (**p95**), 99th percentile (**p99**).
 * Each run has a warm-up: fetch **20** `doujinshi` at evenly spaced IDs from 1 to 1,000,000, then run **Predictable Access** or **Random Access**.
 
@@ -132,11 +132,66 @@ Summarize database performance benchmarks. As the title suggests, this is specif
 
 > **TLDR**: Differences between configs are small.
 
+---
+
 ## 4. get_doujinshi_in_batch
-* **page_size** = 25
-* Mesure in **seconds** how long it takes to fetch  **page_size** `doujinshi`.
-* Run 100 times.
-* Result: {'avg': 1.887381292000009, 'p50': np.float64(1.861399349999374), 'p95': np.float64(2.0939329650003855), 'p99': np.float64(2.2828083730000346)}
+* Measure in **milliseconds** how long it takes to fetch 1 page.
+* Each page has 25 doujinshi (`id`, `full_name`, `path`, `cover_filename`). Note that page here is different from item type `page`. 
+* The first iteration has this (ORM translated to) SQL:
+```sql
+SELECT
+    doujinshi.id,
+    doujinshi.full_name,
+    doujinshi.path,
+    page.filename
+FROM doujinshi JOIN page ON doujinshi.id = page.doujinshi_id
+WHERE page.order_number = 1
+ORDER BY doujinshi.id DESC
+LIMIT 25
+OFFSET :page_number
+```
+(commit fc7abf8e7541e303c72cc621be7b7770975da36f has a redundant WHERE clause)
+
+I only fetch **10** pages, the reason why is explained below:
+
+| Mode  | avg    | p50    | p95    | p99    |
+|-------|-------:|-------:|-------:|-------:|
+| First | 365.25 | 343.51 | 496.39 | 555.21 |
+| Last  | 857.83 | 846.55 | 916.53 | 922.94 |
+
+Nearly **0.5**s second to fetch a random first 10 pages and **1** second to fetch a random last 10 pages. Unacceptable!!!
+
+* Rewrite the SQL:
+```sql
+SELECT
+    doujinshi.id,
+    doujinshi.full_name,
+    doujinshi.path,
+    (
+        SELECT page.filename
+        FROM page
+        WHERE page.doujinshi_id = doujinshi.id AND page.order_number = 1
+    ) AS filename
+FROM doujinshi
+ORDER BY doujinshi.id DESC
+LIMIT 25
+OFFSET :page_number
+```
+
+Now i can confidently fetch **500** pages.
+
+| Mode  | avg   | p50   | p95   | p99   |
+|-------|------:|------:|------:|------:|
+| First | 1.01  | 0.92  | 1.80  | 2.17  |
+| Last  | 20.89 | 20.71 | 22.74 | 25.18 |
+
+~**365**x time faster when fetching new pages and **40**x later pages??? Unbelievable!
+
+A doujinshi.id DESC index doesn't seem to help in this case.
+
+> **TLDR**: Always benchmark.
+
+---
 
 ## 5. Insert 1 doujinshi
 * Result: avg: 21.88ms, p50: 15.04ms, p95: 47.21ms, p99: 69.16ms

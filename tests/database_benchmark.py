@@ -304,6 +304,7 @@ def benchmark_insert_doujinshi(dbm, n_doujinshis):
 		start = time.perf_counter()
 		dbm.insert_doujinshi(doujinshi, False)
 		durations.append(time.perf_counter() - start)
+
 	stats = get_stats(convert_to_ms(durations))
 
 	print("-" * 30)
@@ -321,6 +322,29 @@ def benchmark_insert_doujinshi(dbm, n_doujinshis):
 		raise ValueError("WARNING: ORPHAN ITEMS.")
 
 
+def benchmark_get_doujinshi_in_batch(dbm, n_pages, mode):
+	random.seed(2)
+	page_size = 25
+	pages = list(range(1, 1_000_000 // page_size))
+
+	if mode == "first":
+		pages = pages[:n_pages]
+	elif mode == "last":
+		pages = pages[-n_pages:]
+
+	random.shuffle(pages)
+
+	for page_number in pages:
+		start = time.perf_counter()
+		_, doujinshi_batch = dbm.get_doujinshi_in_batch(page_size, page_number)
+		durations.append(time.perf_counter() - start)
+
+	stats = get_stats(convert_to_ms(durations))
+	print("Benchmarking dbm.get_doujinshi_in_batch()...")
+	print(f"Fetching {mode} {n_pages} pages...")
+	print(f"avg: {stats['avg']:.2f}ms, p50: {stats['p50']:.2f}ms, p95: {stats['p95']:.2f}ms, p99: {stats['p99']:.2f}ms")
+
+
 if __name__ == "__main__":
 	insert_batch_size = 10_000
 	n_doujinshis = 1_000_000
@@ -335,7 +359,7 @@ if __name__ == "__main__":
 	dbm.create_database()
 
 	# dbm.drop_index()
-	# dbm.create_index()
+	dbm.create_index()
 	dbm.show_index()
 
 	print("-" * 30)
@@ -390,21 +414,9 @@ if __name__ == "__main__":
 
 	# ----------------------------
 	durations = []
-	page_size = 25
 
-	# Last 100 pages only since first pages are always the fastest.
 	# Consider using ASC insted of DESC when page_number > n_pages / 2.
-	last_page = n_doujinshis // page_size
-	page_range = list(range(last_page - 100, last_page + 1))
-	random.shuffle(page_range)
-
-	for page_number in page_range:
-		start = time.perf_counter()
-		_, doujinshi_batch = dbm.get_doujinshi_in_batch(page_size, page_number)
-		durations.append(time.perf_counter() - start)
-	stats = get_stats(durations)
-	print(stats)
-
+	benchmark_get_doujinshi_in_batch(dbm, n_pages=500, mode="last")	
 
 	# ----------------------------
 	# benchmark_insert_doujinshi(dbm, 1000)

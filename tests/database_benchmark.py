@@ -322,27 +322,36 @@ def benchmark_insert_doujinshi(dbm, n_doujinshis):
 		raise ValueError("WARNING: ORPHAN ITEMS.")
 
 
-def benchmark_get_doujinshi_in_batch(dbm, n_pages, mode):
+def benchmark_get_doujinshi_in_batch(dbm, n_pages):
 	random.seed(2)
 	page_size = 25
-	pages = list(range(1, 1_000_000 // page_size))
+	max_pages = 1_000_000 // page_size
 
-	if mode == "first":
-		pages = pages[:n_pages]
-	elif mode == "last":
-		pages = pages[-n_pages:]
+	start_end_point = [
+		(1, n_pages + 1),
+		((max_pages // 2) - (n_pages // 2), (max_pages // 2) - (n_pages // 2) + n_pages),
+		(max_pages - n_pages, max_pages)
+	]
 
-	random.shuffle(pages)
+	page_ranges = []
+	for start, end in start_end_point:
+		page_range = list(range(start, end))
+		random.shuffle(page_range)
+		page_ranges.append(page_range)
 
-	for page_number in pages:
-		start = time.perf_counter()
-		_, doujinshi_batch = dbm.get_doujinshi_in_batch(page_size, page_number)
-		durations.append(time.perf_counter() - start)
-
-	stats = get_stats(convert_to_ms(durations))
 	print("Benchmarking dbm.get_doujinshi_in_batch()...")
-	print(f"Fetching {mode} {n_pages} pages...")
-	print(f"avg: {stats['avg']:.2f}ms, p50: {stats['p50']:.2f}ms, p95: {stats['p95']:.2f}ms, p99: {stats['p99']:.2f}ms")
+
+	for (page_start, page_end), page_range in zip(start_end_point, page_ranges):
+		durations = []
+
+		for i, page_number in enumerate(page_range):
+			start_time = time.perf_counter()
+			_, doujinshi_batch = dbm.get_doujinshi_in_batch(page_size, page_number, 1000000)
+			durations.append(time.perf_counter() - start_time)
+
+		stats = get_stats(convert_to_ms(durations))
+		print(f"pages {page_start} - {page_end}, avg: {stats['avg']:.2f}ms, ", end="")
+		print(f"p50: {stats['p50']:.2f}ms, p95: {stats['p95']:.2f}ms, p99: {stats['p99']:.2f}ms")
 
 
 if __name__ == "__main__":
@@ -359,7 +368,7 @@ if __name__ == "__main__":
 	dbm.create_database()
 
 	# dbm.drop_index()
-	dbm.create_index()
+	# dbm.create_index()
 	dbm.show_index()
 
 	print("-" * 30)
@@ -413,10 +422,7 @@ if __name__ == "__main__":
 	# benchmark_get_doujinshi(dbm, 1_000, "random")
 
 	# ----------------------------
-	durations = []
-
-	# Consider using ASC insted of DESC when page_number > n_pages / 2.
-	benchmark_get_doujinshi_in_batch(dbm, n_pages=500, mode="last")	
+	benchmark_get_doujinshi_in_batch(dbm, n_pages=500)
 
 	# ----------------------------
 	# benchmark_insert_doujinshi(dbm, 1000)

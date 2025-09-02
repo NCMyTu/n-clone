@@ -136,7 +136,9 @@ Summarize database performance benchmarks. As the title suggests, this is specif
 
 ## 4. get_doujinshi_in_batch
 * Measure in **milliseconds** how long it takes to fetch 1 page.
-* Each page has 25 doujinshi (`id`, `full_name`, `path`, `cover_filename`). Note that page here is different from item type `page`. 
+* Each page has 25 doujinshi (`id`, `full_name`, `path`, `cover_filename`). Note that page here is different from the item type `page`.
+* Use WITHOUT ROWID.
+* Fetch from **page_start** to **page_end**.
 * The first iteration has this (ORM translated to) SQL:
 ```sql
 SELECT
@@ -154,14 +156,15 @@ OFFSET :page_number
 
 I only fetch **10** pages, the reason why is explained below:
 
-| Mode  | avg    | p50    | p95    | p99    |
-|-------|-------:|-------:|-------:|-------:|
-| First | 365.25 | 343.51 | 496.39 | 555.21 |
-| Last  | 857.83 | 846.55 | 916.53 | 922.94 |
+| page_start | page_end | avg | p50 | p95 | p99 |
+|-----------:|---------:|----:|----:|----:|----:|
+| 1      | 11     | 371.56 | 344.04 | 507.29  | 561.17  |
+| 19,995 | 20,005 | 806.72 | 813.55 | 856.24  | 865.09  |
+| 39,990 | 40,000 | 858.97 | 823.44 | 1001.40 | 1004.65 |
 
-Nearly **0.5**s second to fetch a random first 10 pages and **1** second to fetch a random last 10 pages. Unacceptable!!!
+Nearly **0.5** seconds to fetch a random first 10 pages and **1** second to fetch a random last 10 pages. My short-attention-span short-attented brain can't wait this long. Unacceptable!!!
 
-* Rewrite the SQL:
+* Rewrite the SQL to only fetch `page.filename` after getting `doujinishi.id`:
 ```sql
 SELECT
     doujinshi.id,
@@ -178,18 +181,27 @@ LIMIT 25
 OFFSET :page_number
 ```
 
-Now i can confidently fetch **500** pages.
+Now I can confidently fetch **500** pages.
 
-| Mode  | avg   | p50   | p95   | p99   |
-|-------|------:|------:|------:|------:|
-| First | 1.01  | 0.92  | 1.80  | 2.17  |
-| Last  | 20.89 | 20.71 | 22.74 | 25.18 |
+| page_start | page_end | avg | p50 | p95 | p99 |
+|-----------:|---------:|----:|----:|----:|----:|
+| 1      | 501    | 0.54  | 0.52  | 0.64  | 0.91  |
+| 19,750 | 20,250 | 10.22 | 10.08 | 11.22 | 11.98 |
+| 39,500 | 40,000 | 20.71 | 20.47 | 22.32 | 24.98 |
 
-~**365**x time faster when fetching new pages and **40**x later pages??? Unbelievable!
+~**700**x faster when fetching newest pages and **40**x for later pages. Now I'm satisfied. Or am I?
 
-A doujinshi.id DESC index doesn't seem to help in this case.
+* Fetching the last pages is slow because SQLite has to scan top-down. But why scan top-down when I can scan bottom-up? I can cache `total_page`, and if `page_number` is larger than `total_page` / 2, I can just reverse the scan order. After pulling my hair finding the correct `LIMIT` and `OFFSET` and wrestling with test cases, here’s the result:
 
-> **TLDR**: Always benchmark.
+| page_start | page_end | avg | p50 | p95 | p99 |
+|-----------:|---------:|----:|----:|----:|----:|
+| 1      | 501    | 0.56  | 0.53  | 0.71  | 1.02  |
+| 19,750 | 20,250 | 10.35 | 10.04 | 11.87 | 16.61 |
+| 39,500 | 40,000 | 0.54  | 0.53  | 0.62  | 0.69  |
+
+Much better (I even had music playing in the background during benchmarking — except for the painfully slow run).
+
+> **TLDR**: FAST. First pages FAST. Last pages FAST. ALL FAST.
 
 ---
 

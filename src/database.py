@@ -18,6 +18,7 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from types import SimpleNamespace
 import pathlib
 from sqlalchemy.pool import StaticPool
+import math
 
 
 class DatabaseManager:
@@ -58,7 +59,7 @@ class DatabaseManager:
 			("idx_doujinshi_artist__artist_doujinshi", "doujinshi_artist(artist_id, doujinshi_id)"),
 			("idx_doujinshi_circle__circle_doujinshi", "doujinshi_circle(circle_id, doujinshi_id)"),
 			("idx_doujinshi_language__language_doujinshi", "doujinshi_language(language_id, doujinshi_id)"),
-			# ("idx_doujinshi_id_desc", "doujinshi(id DESC)")
+			# ("idx_doujinshi_id_asc", "doujinshi(id ASC)")
 		]
 
 
@@ -516,12 +517,35 @@ class DatabaseManager:
 			return DatabaseStatus.OK, djs_dict
 
 
-	def get_doujinshi_in_batch(self, page_size, page_number):
+	def get_doujinshi_in_batch(self, page_size, page_number, n_doujinshis=None):
 		if page_number < 1:
 			return DatabaseStatus.OK, []
 
 		doujinshi_list = []
-		offset = (page_number - 1) * page_size
+
+		desc_order = True
+		offset = offset = (page_number - 1) * page_size
+		limit = page_size
+
+		if n_doujinshis:
+			max_page_number = math.ceil(n_doujinshis / page_size)
+			n_doujinshis_last_page = n_doujinshis % page_size
+			if n_doujinshis_last_page == 0:
+				n_doujinshis_last_page = page_size
+
+			if max_page_number % 2 == 1:
+				if page_number > (max_page_number // 2) + 1: # page_number starts at 1
+					desc_order = False
+					offset = n_doujinshis_last_page + (max_page_number - page_number - 1) * page_size
+			else:
+				if page_number > (max_page_number / 2):
+					desc_order = False
+					offset = n_doujinshis_last_page + (max_page_number - page_number - 1) * page_size
+
+			if page_number == max_page_number:
+				desc_order = False
+				limit = n_doujinshis_last_page
+				offset = (max_page_number - page_number) * page_size
 
 		with self.session() as session:
 			try:
@@ -531,28 +555,25 @@ class DatabaseManager:
 					.where(Page.order_number == 1)
 					.scalar_subquery()
 				)
+
+				if desc_order:
+					order = Doujinshi.id.desc()
+				else:
+					order = Doujinshi.id.asc()
+
 				statement = (
 					select(
-						Doujinshi.id,
-						Doujinshi.full_name,
-						Doujinshi.path,
+						Doujinshi.id, Doujinshi.full_name, Doujinshi.path,
 						subq.label("filename")
 					)
-					.order_by(Doujinshi.id.desc())
+					.order_by(order)
+					.limit(limit)
 					.offset(offset)
-					.limit(page_size)
 				)
 				results = session.execute(statement).all()
 
-				# print(f"{"-"*10}STATEMENT{"-"*10}\n{statement}\n{"-"*10}")
-				# compiled = statement.compile(compile_kwargs={"literal_binds": True})
-				# print("-" * 10)
-				# plans = session.execute(text(f"EXPLAIN QUERY PLAN {compiled}")).all()
-				# for plan in plans:
-				# 	print(plan)
-				# print("-" * 10)
-
-				for doujinshi_id, full_name, path, cover_filename in results:
+				iter_results = results if desc_order else reversed(results)
+				for doujinshi_id, full_name, path, cover_filename in iter_results:
 					doujinshi_list.append({
 						"id": doujinshi_id,
 						"full_name": full_name,

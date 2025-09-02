@@ -401,7 +401,7 @@ def test_get_count_of_items_when_getting_and_removing_doujinshi(dbm):
 def insert_doujinshi_into_db(dbm, n_doujinshis):
 	to_compare = []
 
-	for i in range(n_doujinshis+1, 1, -1):
+	for i in range(n_doujinshis, 0, -1):
 		doujinshi = _sample_doujinshi()
 
 		doujinshi["id"] = i
@@ -426,22 +426,45 @@ def split_list(list_to_split, k):
 	return [list_to_split[i:i+k] for i in range(0, len(list_to_split), k)]
 
 
-def test_get_doujinshi_in_batch_valid_page_number(dbm):
-	n_doujinshis_to_test = 217 # must not be divisible by page_size
-	page_size = 25
+@pytest.mark.parametrize("n_doujinshis, page_size",
+[
+	# n_doujinshis divisible by page_size
+	(11, 11), # 1 pages
+	(22, 11), # 2 pages
+	(33, 11), # 3 pages
+	(110, 11), # even number of pages
+	(121, 11), # odd number of pages
+	# n_doujinshis not divisible by page_size
+	(9, 11), # 1 pages
+	(14, 11), # 2 pages
+	(32, 11), # 3 pages
+	(109, 11), # even number of pages
+	(122, 11), # odd number of pages
+])
+def test_get_doujinshi_in_batch_valid_page_number(dbm, n_doujinshis, page_size):
+	to_compare = insert_doujinshi_into_db(dbm, n_doujinshis)
+	to_compare = split_list(to_compare, page_size)
+
 	retrieved_doujinshis = []
-
-	to_compare = insert_doujinshi_into_db(dbm, n_doujinshis_to_test)
-
-	for page_no in range(1, math.ceil(n_doujinshis_to_test / page_size) + 1):
-		return_status, _retrieved_doujinshis = dbm.get_doujinshi_in_batch(page_size, page_no)
+	for page_no in range(1, math.ceil(n_doujinshis / page_size) + 1):
+		return_status, _retrieved_doujinshis = dbm.get_doujinshi_in_batch(page_size, page_no, n_doujinshis)
 		assert return_status == DatabaseStatus.OK
 		retrieved_doujinshis.append(_retrieved_doujinshis)
 
-	to_compare = split_list(to_compare, page_size)
+	for batch in retrieved_doujinshis:
+		for d in batch:
+			print(f"id: {d['id']}", end=", ")
+		print()
 
-	assert retrieved_doujinshis == to_compare
-	assert len(retrieved_doujinshis[-1]) == n_doujinshis_to_test % page_size
+	for i, (retrieved, expected) in enumerate(zip(retrieved_doujinshis, to_compare), start=1):
+		assert len(retrieved) == len(expected), f"Mismatch number of doujinshis on page {i}."
+		for d_retrieved, d_expected in zip(retrieved, expected):
+			assert d_retrieved == d_expected, f"Mismatch on page {i}, retrieved: {retrieved}, expected: {expected}."
+
+	n_doujinshis_last_page = n_doujinshis % page_size
+	if n_doujinshis_last_page == 0:
+		n_doujinshis_last_page = page_size
+	assert len(retrieved_doujinshis[-1]) == n_doujinshis_last_page, "n_doujinshis in last pages don't match."
 
 
 def test_get_doujinshi_in_batch_illegal_page_number(dbm):

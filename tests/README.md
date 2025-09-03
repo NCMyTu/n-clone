@@ -3,7 +3,7 @@
 ## Run Tests
 From the project root:
 ```bash
-pytest tests/test_database.py -v
+pytest -v
 ```
 
 ## Run Benchmarks

@@ -442,16 +442,16 @@ def split_list(list_to_split, k):
 	(122, 11), # odd number of pages
 ])
 @pytest.mark.parametrize("use_cache", [True, False])
-def test_get_doujinshi_in_batch_valid_page_number(dbm, n_doujinshis, page_size, use_cache):
+def test_get_doujinshi_in_page_valid_page_number(dbm, n_doujinshis, page_size, use_cache):
 	to_compare = insert_doujinshi_into_db(dbm, n_doujinshis)
 	to_compare = split_list(to_compare, page_size)
 
 	retrieved_doujinshis = []
 	for page_no in range(1, math.ceil(n_doujinshis / page_size) + 1):
 		if use_cache:
-			return_status, doujinshi_batch = dbm.get_doujinshi_in_batch(page_size, page_no, n_doujinshis)
+			return_status, doujinshi_batch = dbm.get_doujinshi_in_page(page_size, page_no, n_doujinshis)
 		else:
-			return_status, doujinshi_batch = dbm.get_doujinshi_in_batch(page_size, page_no)
+			return_status, doujinshi_batch = dbm.get_doujinshi_in_page(page_size, page_no)
 		assert return_status == DatabaseStatus.OK
 		retrieved_doujinshis.append(doujinshi_batch)
 
@@ -471,7 +471,7 @@ def test_get_doujinshi_in_batch_valid_page_number(dbm, n_doujinshis, page_size, 
 	assert len(retrieved_doujinshis[-1]) == n_doujinshis_last_page, "n_doujinshis in last pages doesn't match."
 
 
-def test_get_doujinshi_in_batch_illegal_page_number(dbm):
+def test_get_doujinshi_in_page_illegal_page_number(dbm):
 	n_doujinshis_to_test = 217
 	page_size = 25
 	illegal_page_numbers = [-1, 0, 10**6]
@@ -479,6 +479,6 @@ def test_get_doujinshi_in_batch_illegal_page_number(dbm):
 	insert_doujinshi_into_db(dbm, n_doujinshis_to_test)
 
 	for illegal_page_number in illegal_page_numbers:
-		return_status, should_be_empty = dbm.get_doujinshi_in_batch(page_size, illegal_page_number)
+		return_status, should_be_empty = dbm.get_doujinshi_in_page(page_size, illegal_page_number)
 		assert return_status == DatabaseStatus.OK
 		assert should_be_empty == []

@@ -517,7 +517,7 @@ class DatabaseManager:
 			return DatabaseStatus.OK, djs_dict
 
 
-	def get_doujinshi_in_batch(self, page_size, page_number, n_doujinshis=None):
+	def get_doujinshi_in_page(self, page_size, page_number, n_doujinshis=None):
 		if page_number < 1:
 			return DatabaseStatus.OK, []
 
@@ -581,8 +581,8 @@ class DatabaseManager:
 				return DatabaseStatus.FATAL, []
 
 
-	def get_all_doujinshi(self):
-		...
+	# def get_doujinshi_in_range(self, id_start, id_end):
+		
 
 
 	def _update_count(self, model, model_id_column, d_id_column, session):

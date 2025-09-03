@@ -134,7 +134,7 @@ Summarize database performance benchmarks. As the title suggests, this is specif
 
 ---
 
-## 4. get_doujinshi_in_batch
+## 4. get_doujinshi_in_page
 * Measure in **milliseconds** how long it takes to fetch 1 page.
 * Each page has 25 doujinshi (`id`, `full_name`, `path`, `cover_filename`). Note that page here is different from the item type `page`.
 * Use WITHOUT ROWID.

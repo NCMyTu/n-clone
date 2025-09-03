@@ -322,7 +322,7 @@ def benchmark_insert_doujinshi(dbm, n_doujinshis):
 		raise ValueError("WARNING: ORPHAN ITEMS.")
 
 
-def benchmark_get_doujinshi_in_batch(dbm, n_pages):
+def benchmark_get_doujinshi_in_page(dbm, n_pages):
 	random.seed(2)
 	page_size = 25
 	max_pages = 1_000_000 // page_size
@@ -339,14 +339,14 @@ def benchmark_get_doujinshi_in_batch(dbm, n_pages):
 		random.shuffle(page_range)
 		page_ranges.append(page_range)
 
-	print("Benchmarking dbm.get_doujinshi_in_batch()...")
+	print("Benchmarking dbm.get_doujinshi_in_page()...")
 
 	for (page_start, page_end), page_range in zip(start_end_point, page_ranges):
 		durations = []
 
 		for i, page_number in enumerate(page_range):
 			start_time = time.perf_counter()
-			_, doujinshi_batch = dbm.get_doujinshi_in_batch(page_size, page_number, 1000000)
+			_, doujinshi_batch = dbm.get_doujinshi_in_page(page_size, page_number, 1000000)
 			durations.append(time.perf_counter() - start_time)
 
 		stats = get_stats(convert_to_ms(durations))
@@ -422,7 +422,7 @@ if __name__ == "__main__":
 	# benchmark_get_doujinshi(dbm, 1_000, "random")
 
 	# ----------------------------
-	benchmark_get_doujinshi_in_batch(dbm, n_pages=500)
+	benchmark_get_doujinshi_in_page(dbm, n_pages=500)
 
 	# ----------------------------
 	# benchmark_insert_doujinshi(dbm, 1000)

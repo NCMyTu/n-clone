@@ -469,28 +469,15 @@ class DatabaseManager:
 
 
 	def get_doujinshi(self, doujinshi_id):
-		# TODO: measure performance of joinedload and selectinload
 		with self.session() as session:
-			statement = (
-				select(Doujinshi)
-				.options(
-					selectinload(Doujinshi.parodies),
-					selectinload(Doujinshi.characters),
-					selectinload(Doujinshi.tags),
-					selectinload(Doujinshi.artists),
-					selectinload(Doujinshi.groups),
-					selectinload(Doujinshi.languages),
-					selectinload(Doujinshi.pages)
-				)
-				.where(Doujinshi.id == doujinshi_id)
-			)
+			statement = select(Doujinshi).where(Doujinshi.id == doujinshi_id)
 			doujinshi = session.scalar(statement)
 
 			if not doujinshi:
 				self.logger.item_not_found(DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND, Doujinshi, doujinshi_id, 2)
 				return DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND, None
 
-			djs_dict = {
+			doujinshi_dict = {
 				"id": doujinshi.id,
 				"full_name": doujinshi.full_name,
 				"full_name_original": doujinshi.full_name_original,
@@ -499,9 +486,8 @@ class DatabaseManager:
 				"path": doujinshi.path,
 				"note": doujinshi.note
 			}
-			djs_dict["pages"] = [p.filename for p in doujinshi.pages]
+			doujinshi_dict["pages"] = [p.filename for p in doujinshi.pages]
 
-			count = self._get_count_by_name
 			relationships = {
 				"parodies": (Parody, doujinshi.parodies),
 				"characters": (Character, doujinshi.characters),
@@ -512,9 +498,9 @@ class DatabaseManager:
 			}
 			for key, (model, rel_objs) in relationships.items():
 				names = [obj.name for obj in rel_objs]
-				_, djs_dict[key] = count(model, names, session)
+				_, doujinshi_dict[key] = self._get_count_by_name(model, names, session)
 
-			return DatabaseStatus.OK, djs_dict
+			return DatabaseStatus.OK, doujinshi_dict
 
 
 	def get_doujinshi_in_page(self, page_size, page_number, n_doujinshis=None):
@@ -581,8 +567,49 @@ class DatabaseManager:
 				return DatabaseStatus.FATAL, []
 
 
-	# def get_doujinshi_in_range(self, id_start, id_end):
-		
+	def get_doujinshi_in_range(self, id_start=1, id_end=None):
+		# TODO: get_doujinshi explain query to check if it uses index efficiently.
+		models = [Parody, Character, Tag, Artist, Group, Language]
+
+		with self.session() as session:
+			try:
+				id_name_maps = {
+					model: {
+						row.id: row.name for row in session.scalars(select(model)).all()
+					}
+					for model in models
+				}
+
+				statement = select(Doujinshi).where(Doujinshi.id >= id_start)
+				if id_end:
+					statement = statement.where(Doujinshi.id <= id_end)
+
+				retrieved_doujinshi = session.scalars(statement).all()
+
+				doujinshi_list = []
+				single_value_attr = [
+					"id",
+					"full_name","full_name_original",
+					"pretty_name", "pretty_name_original",
+					"path", "note"
+				]
+				list_value_attr = [
+					"parodies", "characters", "tags",
+					"artists", "groups", "languages"
+				]
+
+				for doujinshi in retrieved_doujinshi:
+					doujinshi_dict = {attr: getattr(doujinshi, attr) for attr in single_value_attr}
+					for attr in list_value_attr:
+						doujinshi_dict[attr] = sorted(model.name for model in getattr(doujinshi, attr))
+					doujinshi_dict["pages"] = [page.filename for page in doujinshi.pages]
+					doujinshi_list.append(doujinshi_dict)
+
+				return DatabaseStatus.OK, doujinshi_list
+			except Exception as e:
+				self.logger.exception(DatabaseStatus.FATAL, e, 2)
+				return DatabaseStatus.FATAL, []
+
 
 
 	def _update_count(self, model, model_id_column, d_id_column, session):

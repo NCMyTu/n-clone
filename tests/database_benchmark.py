@@ -422,7 +422,16 @@ if __name__ == "__main__":
 	# benchmark_get_doujinshi(dbm, 1_000, "random")
 
 	# ----------------------------
-	benchmark_get_doujinshi_in_page(dbm, n_pages=500)
+	# benchmark_get_doujinshi_in_page(dbm, n_pages=500)
 
 	# ----------------------------
 	# benchmark_insert_doujinshi(dbm, 1000)
+
+	# ----------------------------
+	start = time.perf_counter()
+	return_status, doujinshi_list = dbm.get_doujinshi_in_range(1, 2)
+	print(f"time elapsed: {time.perf_counter() - start}")
+
+	print(return_status)
+	for d in doujinshi_list:
+		print(d)

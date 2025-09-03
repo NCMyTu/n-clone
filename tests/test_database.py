@@ -6,6 +6,14 @@ import random
 import math
 
 
+INVALID_VALUES = [
+	None,
+	"", " \n\t  ",
+	[], (), set(), {},
+	1.23, True, object(),
+]
+
+
 @pytest.fixture
 def dbm():
 	dbm = DatabaseManager(url=f"sqlite:///:memory:", test=True)
@@ -15,13 +23,13 @@ def dbm():
 	return dbm
 
 
-def _sample_doujinshi():
+def _sample_doujinshi(doujinshi_id):
 	return {
-		"id": 1,
+		"id": doujinshi_id,
 		
-		"full_name": "Test Doujinshi", "pretty_name": "st Dou",
+		"full_name": f"Test Doujinshi {doujinshi_id}", "pretty_name": "st Dou",
 		"full_name_original": "元の名前", "pretty_name_original": "の名", # Must be japanese
-		"path": "inter/path",
+		"path": f"inter/path/{doujinshi_id}",
 		"note": "Test note",
 
 		"parodies": [f"parody_{i}" for i in range(1, 4)],
@@ -36,15 +44,7 @@ def _sample_doujinshi():
 
 @pytest.fixture
 def sample_doujinshi():
-	return _sample_doujinshi()
-
-
-INVALID_VALUES = [
-	None,
-	"", " \n\t  ",
-	[], (), set(), {},
-	1.23, True, object(),
-]
+	return _sample_doujinshi(1)
 
 
 @pytest.mark.parametrize("invalid_value", INVALID_VALUES + ["123"])
@@ -293,14 +293,11 @@ def test_get_count_of_items_in_category(dbm, item_type, update_count_method, use
 	get_count_of = f"get_count_of_{item_type}"
 	get_count_of = getattr(dbm, get_count_of)
 
-	for i in range(150):
-		doujinshi = _sample_doujinshi()
+	for d_id in range(1, 151):
+		doujinshi = _sample_doujinshi(d_id)
 
 		n_items = random.randint(0, len(items)//2)
 		selected_items = random.sample(items, n_items)
-
-		doujinshi["id"] = i
-		doujinshi["path"] = f"path_{i}"
 		doujinshi[item_type] = selected_items
 
 		for item in selected_items:
@@ -349,9 +346,7 @@ def test_get_count_of_items_when_getting_and_removing_doujinshi(dbm):
 
 	# Insert new doujinshis
 	for i in range(n_doujinshis):
-		doujinshi = _sample_doujinshi()
-		doujinshi["id"] = i
-		doujinshi["path"] = f"path_{i}"
+		doujinshi = _sample_doujinshi(i)
 
 		for field, item_count in mapping.items():
 			n_items = random.randint(0, n_items_per_type)
@@ -401,12 +396,9 @@ def test_get_count_of_items_when_getting_and_removing_doujinshi(dbm):
 def insert_doujinshi_into_db(dbm, n_doujinshis):
 	to_compare = []
 
-	for i in range(n_doujinshis, 0, -1):
-		doujinshi = _sample_doujinshi()
+	for d_id in range(n_doujinshis, 0, -1):
+		doujinshi = _sample_doujinshi(d_id)
 
-		doujinshi["id"] = i
-		doujinshi["full_name"] = f"full_name_{i}"
-		doujinshi["path"] = f"path_{i}"
 		random.shuffle(doujinshi["pages"])
 
 		to_compare.append({
@@ -482,3 +474,54 @@ def test_get_doujinshi_in_page_illegal_page_number(dbm):
 		return_status, should_be_empty = dbm.get_doujinshi_in_page(page_size, illegal_page_number)
 		assert return_status == DatabaseStatus.OK
 		assert should_be_empty == []
+
+
+@pytest.mark.parametrize("n_doujinshi_to_test, expected_n_doujinshi, id_start, id_end",
+[
+	(48, 1, 5, 5),
+	(48, 10, 1, 10),
+	(48, 46, 2, 47),
+	(48, 48, 1, 98),
+	(48, 48, 1, 99),
+	(48, 0, 2, 1),
+	(48, 10, -1, 10),
+	(48, 48, -1, 48),
+	(48, 48, -1, 100),
+	(48, 0, -7, -5)
+])
+def test_get_doujinshi_in_range(dbm, n_doujinshi_to_test, expected_n_doujinshi, id_start, id_end):
+	to_compare = []
+
+	fields_to_shuflfe = [
+		"parodies", "characters", "tags",
+		"artists", "groups", "languages",
+		"pages"
+	]
+
+	for d_id in range(1, n_doujinshi_to_test+1):
+		doujinshi = _sample_doujinshi(d_id)
+
+		for field in fields_to_shuflfe:
+			random.shuffle(doujinshi[field])
+
+		to_compare.append(doujinshi)
+		return_status = dbm.insert_doujinshi(doujinshi, False)
+		assert return_status == DatabaseStatus.OK
+
+	return_status, retrieved_doujinshi = dbm.get_doujinshi_in_range(id_start, id_end)
+
+	assert return_status == DatabaseStatus.OK
+	assert len(retrieved_doujinshi) == expected_n_doujinshi
+
+	expected_doujinshi = [
+		d for d in to_compare
+		if d["id"] >= id_start and d["id"] <= (id_end if id_end else n_doujinshi_to_test)
+	]
+	for retrieved, expected in zip(retrieved_doujinshi, expected_doujinshi):
+		for item_name, expected_items in expected.items():
+			if item_name == "pages":
+				assert retrieved[item_name] == expected_items
+			elif isinstance(expected_items, list):
+				assert retrieved[item_name] == sorted(expected_items)
+			else:
+				assert retrieved[item_name] == expected_items

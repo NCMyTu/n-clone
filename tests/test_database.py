@@ -441,15 +441,19 @@ def split_list(list_to_split, k):
 	(109, 11), # even number of pages
 	(122, 11), # odd number of pages
 ])
-def test_get_doujinshi_in_batch_valid_page_number(dbm, n_doujinshis, page_size):
+@pytest.mark.parametrize("use_cache", [True, False])
+def test_get_doujinshi_in_batch_valid_page_number(dbm, n_doujinshis, page_size, use_cache):
 	to_compare = insert_doujinshi_into_db(dbm, n_doujinshis)
 	to_compare = split_list(to_compare, page_size)
 
 	retrieved_doujinshis = []
 	for page_no in range(1, math.ceil(n_doujinshis / page_size) + 1):
-		return_status, _retrieved_doujinshis = dbm.get_doujinshi_in_batch(page_size, page_no, n_doujinshis)
+		if use_cache:
+			return_status, doujinshi_batch = dbm.get_doujinshi_in_batch(page_size, page_no, n_doujinshis)
+		else:
+			return_status, doujinshi_batch = dbm.get_doujinshi_in_batch(page_size, page_no)
 		assert return_status == DatabaseStatus.OK
-		retrieved_doujinshis.append(_retrieved_doujinshis)
+		retrieved_doujinshis.append(doujinshi_batch)
 
 	for batch in retrieved_doujinshis:
 		for d in batch:
@@ -459,12 +463,12 @@ def test_get_doujinshi_in_batch_valid_page_number(dbm, n_doujinshis, page_size):
 	for i, (retrieved, expected) in enumerate(zip(retrieved_doujinshis, to_compare), start=1):
 		assert len(retrieved) == len(expected), f"Mismatch number of doujinshis on page {i}."
 		for d_retrieved, d_expected in zip(retrieved, expected):
-			assert d_retrieved == d_expected, f"Mismatch on page {i}, retrieved: {retrieved}, expected: {expected}."
+			assert d_retrieved == d_expected, f"Mismatch on page {i}, retrieved: {d_retrieved}, expected: {d_expected}."
 
 	n_doujinshis_last_page = n_doujinshis % page_size
 	if n_doujinshis_last_page == 0:
 		n_doujinshis_last_page = page_size
-	assert len(retrieved_doujinshis[-1]) == n_doujinshis_last_page, "n_doujinshis in last pages don't match."
+	assert len(retrieved_doujinshis[-1]) == n_doujinshis_last_page, "n_doujinshis in last pages doesn't match."
 
 
 def test_get_doujinshi_in_batch_illegal_page_number(dbm):

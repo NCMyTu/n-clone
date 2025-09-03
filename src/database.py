@@ -524,28 +524,22 @@ class DatabaseManager:
 		doujinshi_list = []
 
 		desc_order = True
-		offset = offset = (page_number - 1) * page_size
+		offset = (page_number - 1) * page_size
 		limit = page_size
 
 		if n_doujinshis:
 			max_page_number = math.ceil(n_doujinshis / page_size)
-			n_doujinshis_last_page = n_doujinshis % page_size
-			if n_doujinshis_last_page == 0:
-				n_doujinshis_last_page = page_size
+			last_page_size = n_doujinshis % page_size or page_size
 
-			if max_page_number % 2 == 1:
-				if page_number > (max_page_number // 2) + 1: # page_number starts at 1
-					desc_order = False
-					offset = n_doujinshis_last_page + (max_page_number - page_number - 1) * page_size
-			else:
-				if page_number > (max_page_number / 2):
-					desc_order = False
-					offset = n_doujinshis_last_page + (max_page_number - page_number - 1) * page_size
-
-			if page_number == max_page_number:
+			# Page is in second half
+			if page_number > math.ceil(max_page_number / 2):
 				desc_order = False
-				limit = n_doujinshis_last_page
-				offset = (max_page_number - page_number) * page_size
+				offset = last_page_size + (max_page_number - page_number - 1) * page_size
+
+				# Special case: last page
+				if page_number == max_page_number:
+					limit = last_page_size
+					offset = (max_page_number - page_number) * page_size
 
 		with self.session() as session:
 			try:
@@ -585,6 +579,10 @@ class DatabaseManager:
 			except Exception as e:
 				self.logger.exception(DatabaseStatus.FATAL, e, 2)
 				return DatabaseStatus.FATAL, []
+
+
+	def get_all_doujinshi(self):
+		...
 
 
 	def _update_count(self, model, model_id_column, d_id_column, session):
@@ -644,4 +642,3 @@ class DatabaseManager:
 				self._update_count_by_item_type(model, model_id_column, d_id_column, session)
 			session.commit()
 			return DatabaseStatus.OK
-	# def export_to_json(self):

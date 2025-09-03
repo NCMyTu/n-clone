@@ -1,13 +1,13 @@
 # How to Run
 
 ## Run Tests
-Require numpy.  
 From the project root:
 ```bash
 pytest tests/test_database.py -v
 ```
 
 ## Run Benchmarks
+Require numpy.  
 From the project root:
 ```bash
 python -m tests.database_benchmark

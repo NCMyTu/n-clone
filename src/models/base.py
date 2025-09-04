@@ -9,11 +9,10 @@ from pathlib import Path
 class Base(DeclarativeBase):
 	@validates("full_name", "name", "path")
 	def validate_and_normalize_string(self, key, value):
-		"""
-		Validate and normalize string fields.
+		"""Validate and normalize string fields.
 
-		- Reject blank or all-whitespace values.
-		- Normalize:
+		Reject blank or all-whitespace values.
+		Normalize:
 			Strip leading/trailing whitespace,
 			Collapse multiple spaces into one,
 			For 'name', to lowercase,

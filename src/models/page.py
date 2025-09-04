@@ -34,6 +34,6 @@ class Page(Base):
 		CheckConstraint("filename <> ''"),
 		CheckConstraint("order_number > 0"),
 		UniqueConstraint("doujinshi_id", "filename"),
-		UniqueConstraint("doujinshi_id", "order_number"),
+		# UniqueConstraint("doujinshi_id", "order_number"),
 		{"sqlite_with_rowid": PAGE_SQLITE_WITH_ROWID}
 	)

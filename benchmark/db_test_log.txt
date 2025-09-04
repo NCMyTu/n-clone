@@ -1,0 +1,28 @@
+define additional index: Index("idx_doujinshi_parody__parody_doujinshi", "parody_id", "doujinshi_id"), and so on
+
+Insert 1m doujinshi, batch_size=10k, p, c, t, a, g, l count: {UPDATE HERE}
+* with those PRAGMA: {UPDATE HERE}
+* insertion only runs 1 time
+* file size is measured after using VACUUM
+with rowid, no additional index:
+	file size: 4.9111GB, time: 1099.15s
+with rowid, additional index:
+	file size: 5.6435GB
+without rowid, no additional index:
+	file size: 2.7552GB, time: 1046.06s
+without rowid, additional index:
+	file size: 3.2811GB
+
+Update all counts (run n_times)
+with rowid, no additional index:
+	n_times = 10
+	min: 18.48s, max: 19.89s, avg: 19.50s
+with rowid, additional index:
+	n_times = 100
+	min: 3.02s, max: 3.73s, avg: 3.18s
+without rowid, no additional index:
+	n_times = 10
+	min: 16.55s, max: 20.44s, avg: 18.25s
+without rowid, additional index:
+	n_times = 100
+	min: 2.67s, max: 6.60s, avg: 3.05s

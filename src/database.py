@@ -569,17 +569,8 @@ class DatabaseManager:
 
 	def get_doujinshi_in_range(self, id_start=1, id_end=None):
 		# TODO: get_doujinshi explain query to check if it uses index efficiently.
-		models = [Parody, Character, Tag, Artist, Group, Language]
-
 		with self.session() as session:
 			try:
-				id_name_maps = {
-					model: {
-						row.id: row.name for row in session.scalars(select(model)).all()
-					}
-					for model in models
-				}
-
 				statement = select(Doujinshi).where(Doujinshi.id >= id_start)
 				if id_end:
 					statement = statement.where(Doujinshi.id <= id_end)
@@ -601,7 +592,7 @@ class DatabaseManager:
 				for doujinshi in retrieved_doujinshi:
 					doujinshi_dict = {attr: getattr(doujinshi, attr) for attr in single_value_attr}
 					for attr in list_value_attr:
-						doujinshi_dict[attr] = sorted(model.name for model in getattr(doujinshi, attr))
+						doujinshi_dict[attr] = [model.name for model in getattr(doujinshi, attr)]
 					doujinshi_dict["pages"] = [page.filename for page in doujinshi.pages]
 					doujinshi_list.append(doujinshi_dict)
 

@@ -2,7 +2,32 @@ import pytest
 from src import DatabaseStatus
 import random
 import math
-from .utils import insert_n_doujinshis_into_db, _sample_doujinshi, split_list
+from .utils import _sample_doujinshi
+
+
+def split_list(list_to_split, k):
+	return [list_to_split[i:i+k] for i in range(0, len(list_to_split), k)]
+
+
+def insert_n_doujinshis_into_db(dbm, n_doujinshis):
+	to_compare = []
+
+	for d_id in range(n_doujinshis, 0, -1):
+		doujinshi = _sample_doujinshi(d_id)
+
+		random.shuffle(doujinshi["pages"])
+
+		to_compare.append({
+			"id": doujinshi["id"],
+			"full_name": doujinshi["full_name"],
+			"path": doujinshi["path"],
+			"cover_filename": doujinshi["pages"][0]
+		})
+
+		return_status = dbm.insert_doujinshi(doujinshi, False)
+		assert return_status == DatabaseStatus.OK
+
+	return to_compare
 
 
 @pytest.mark.parametrize("n_doujinshis, page_size",

@@ -357,13 +357,13 @@ def benchmark_get_doujinshi_in_page(dbm, n_pages):
 if __name__ == "__main__":
 	insert_batch_size = 10_000
 	n_doujinshis = 1_000_000
-	with_rowid_path = "tests/db/1M_rowid.db.sqlite"
-	without_rowid_path = "tests/db/1M_without_rowid.db.sqlite"
+	with_rowid_path = "benchmark/db/1M_rowid.db.sqlite"
+	without_rowid_path = "benchmark/db/1M_without_rowid.db.sqlite"
 
 	db_path = without_rowid_path
 	print(db_path, "\n", "-" * 30)
 
-	dbm = DatabaseManager(url=f"sqlite:///{db_path}", log_path="tests/db/1M.log", echo=False)
+	dbm = DatabaseManager(url=f"sqlite:///{db_path}", log_path="benchmark/db/1M.log", echo=False)
 	dbm.logger.disable()
 	dbm.create_database()
 
@@ -404,8 +404,7 @@ if __name__ == "__main__":
 
 	# ----------------------------
 	# Only need to run this after inserting or creating/dropping index.
-	# with dbm.session() as session:
-	# 	session.execute(text("VACUUM"))
+	# dbm.vacuum()
 	
 	# ----------------------------
 	# _, durations = time_func(dbm.update_count_of_all, n=10)
@@ -422,16 +421,9 @@ if __name__ == "__main__":
 	# benchmark_get_doujinshi(dbm, 1_000, "random")
 
 	# ----------------------------
-	# benchmark_get_doujinshi_in_page(dbm, n_pages=500)
-
-	# ----------------------------
 	# benchmark_insert_doujinshi(dbm, 1000)
 
 	# ----------------------------
-	start = time.perf_counter()
-	return_status, doujinshi_list = dbm.get_doujinshi_in_range(1, 2)
-	print(f"time elapsed: {time.perf_counter() - start}")
+	# benchmark_get_doujinshi_in_page(dbm, n_pages=500)
 
-	print(return_status)
-	for d in doujinshi_list:
-		print(d)
+	print(type(Doujinshi))

@@ -18,10 +18,14 @@ Summarize database performance benchmarks. As the title suggests, this is specif
   * `Parody`, `Tag`, `Character`, `Artist`, and `Group`: 500 each.
   * `Language`: 4.
   * `Page`: up to 250 per `doujinshi`.
+* Run with these flags:
+  * `PRAGMA synchronous = OFF;`
+  * `PRAGMA journal_mode = MEMORY;`
+  * `PRAGMA temp_store = MEMORY;`
+  * *These flags were chosen to maximize speed (according to a guide which I'm too lazy to cite). Do not do this in production.*
 * Item distribution by type:  
   * Each `item type` (except `Page`) has a **97%** chance to sample without replacement a random number of items from **base_min** up to **base_max**, and a **3%** chance to sample without replacement a random number of items from **rare_max** up to the total number of items.
   * `Page` has an **85%** chance to sample the number of pages from a Gaussian distribution with **mean 25** and **stddev 7**, and a **15%** chance with **mean 200** and **stddev 50**. The number of pages is **clamped** between **1** and **250**.
-* Run with these flags: {UPDATE HERE}
 
 | Item type | base_min | base_max | rare_max |
 |-----------|---------:|---------:|---------:|
@@ -205,5 +209,18 @@ Much better (I even had music playing in the background during benchmarking — 
 
 ---
 
-## 5. Insert 1 doujinshi
-* Result: avg: 21.88ms, p50: 15.04ms, p95: 47.21ms, p99: 69.16ms
+## 5. insert_doujinshi
+* Measure in **milliseconds** how long it takes to insert 1 doujinshi into the database.
+* This is done after inserting **1,000,000** doujinshi.
+* Use WITHOUT ROWID.
+* Result across **1,000** runs:
+| avg | p50 | p95 | p99 |
+|----:|----:|----:|----:|
+| 21.88 | 15.04 | 47.21 | 69.16 |
+
+> **TLDR**: Fast enough for single use.
+
+---
+
+## 6. Conclusion (if this is the final version of this benchmark)
+* Use WITHOUT ROWID. WITH and WITHOUT ROWID tables perform almost the same in terms of time, but WITHOUT ROWID uses significant less storage.

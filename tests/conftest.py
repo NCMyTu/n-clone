@@ -5,7 +5,7 @@ from .utils import _sample_doujinshi
 
 @pytest.fixture
 def dbm():
-	dbm = DatabaseManager(url=f"sqlite:///:memory:", test=True)
+	dbm = DatabaseManager(url=f"sqlite:///:memory:", log_path="db_test.log",test=True)
 	dbm.logger.disable()
 	status = dbm.create_database()
 	assert status == DatabaseStatus.OK

@@ -30,27 +30,29 @@ class DatabaseManager:
 	It is responsible for creating and managing the SQLAlchemy session,
 	executing queries, and handling transactions.
 
-	For more usage details, refer to {UPDATE HERE}.
+	For usage examples, refer to {UPDATE HERE}.
 
-	NOTE
-	----
-	This class (right now) is specific to SQLite.
+	Notes
+	-----
+	  - This class (right now) is specific to SQLite.
+	  - Call the `update_count` methods after any update operations, since
+	update methods themselves do not refresh the counts.
 
 	Parameters
 	----------
 	url : str
 		The database connection path to establish the connection.
 
-	log_path : str, default="db.log"
+	log_path : str
 		Path to the log file where database operations will be logged.
 
 	echo : bool, default=False
-		If True, the database engine will log all SQL statements.
+		If True, the database engine will emit all SQL statements.
 
 	test : bool, default=False
-		If True, initializes the database in testing mode (set url tousing an in-memory database).
+		If True, initializes the database in testing mode (remember to set `url` to use an in-memory database).
 	"""
-	def __init__(self, url, log_path="db.log", echo=False, test=False):
+	def __init__(self, url, log_path, echo=False, test=False):
 		if test:
 			self.engine = create_engine(
 			url,
@@ -66,8 +68,6 @@ class DatabaseManager:
 
 	def session(self):
 		"""Return this database's internal session.
-
-		For more usage details, refer to {UPDATE HERE}.
 
 		Returns
 		-------
@@ -110,8 +110,8 @@ class DatabaseManager:
 
 		Returns
 		-------
-		DatabaseStatus.OK
-			Indicates the database was successfully created.
+		status : DatabaseStatus.OK
+			Indicates the database is successfully created.
 		"""
 		Base.metadata.create_all(self.engine)
 		self.insert_language("english")
@@ -145,7 +145,7 @@ class DatabaseManager:
 
 		Returns
 		-------
-		DatabaseStatus.OK
+		status : DatabaseStatus.OK
 			Indicates indices were successfully created.
 		"""
 		with self.session() as session:
@@ -161,7 +161,7 @@ class DatabaseManager:
 
 		Returns
 		-------
-		DatabaseStatus.OK
+		status : DatabaseStatus.OK
 			Indicates indices were successfully dropped.
 		"""
 		with self.session() as session:
@@ -193,7 +193,7 @@ class DatabaseManager:
 			session.execute(text("VACUUM"))
 
 
-	def _insert_item(self, model, value):
+	def _insert_item(self, model, name):
 		"""Insert a single item into the database.
 
 		Use public methods whenever possible.
@@ -203,51 +203,51 @@ class DatabaseManager:
 		model : `Parody`, `Character`, `Tag`, `Artist`, `Group` or `Language`
 			Type of the item being inserted.
 
-		value : str
+		name : str
 			Name of the item to insert.
 
 		Returns
 		-------
-		DatabaseStatus
+		status : DatabaseStatus
 			Status of the operation:
-				DatabaseStatus.OK on success.
-				DatabaseStatus.NON_FATAL_ITEM_DUPLICATE if the item already exists.
-				DatabaseStatus.FATAL on other errors.
+				DatabaseStatus.OK - item inserted.
+				DatabaseStatus.NON_FATAL_ITEM_DUPLICATE - item already exists.
+				DatabaseStatus.FATAL - other errors.
 		"""
 		with self.session() as session:
 			try:
-				new_item = model(name=value)
+				new_item = model(name=name)
 				session.add(new_item)
 				session.commit()
 
-				self.logger.item_inserted(DatabaseStatus.OK, model, value)
+				self.logger.item_inserted(DatabaseStatus.OK, model, name)
 				return DatabaseStatus.OK
 			except IntegrityError as e:
-				self.logger.item_duplicate(DatabaseStatus.NON_FATAL_ITEM_DUPLICATE, model, value)
+				self.logger.item_duplicate(DatabaseStatus.NON_FATAL_ITEM_DUPLICATE, model, name)
 				return DatabaseStatus.NON_FATAL_ITEM_DUPLICATE
 			except Exception as e:
 				self.logger.exception(DatabaseStatus.FATAL, e)
 				return DatabaseStatus.FATAL
 
 
-	def insert_parody(self, value):
+	def insert_parody(self, name):
 		"""Insert a `Parody` into the database."""
-		return self._insert_item(Parody, value)
-	def insert_character(self, value):
+		return self._insert_item(Parody, name)
+	def insert_character(self, name):
 		"""Insert a `Character` into the database."""
-		return self._insert_item(Character, value)
-	def insert_tag(self, value):
+		return self._insert_item(Character, name)
+	def insert_tag(self, name):
 		"""Insert a `Tag` into the database."""
-		return self._insert_item(Tag, value)
-	def insert_artist(self, value):
+		return self._insert_item(Tag, name)
+	def insert_artist(self, name):
 		"""Insert an `Artist` into the database."""
-		return self._insert_item(Artist, value)
-	def insert_group(self, value):
+		return self._insert_item(Artist, name)
+	def insert_group(self, name):
 		"""Insert a `Group` into the database."""
-		return self._insert_item(Group, value)
-	def insert_language(self, value):
+		return self._insert_item(Group, name)
+	def insert_language(self, name):
 		"""Insert a `Language` into the database."""
-		return self._insert_item(Language, value)
+		return self._insert_item(Language, name)
 
 
 	def _add_and_link_item(self, session, doujinshi_model, relation_name, Model, item_names):
@@ -296,17 +296,18 @@ class DatabaseManager:
 	def insert_doujinshi(self, doujinshi, user_prompt=True):
 		"""Insert a single doujinshi into the database.
 
-		Performs validation, checks for duplicates, adds the doujinshi and its
-		related items (parodies, characters, tags, artists, groups, languages, pages).
+		Perform these actions in order:
+		validates the doujinshi,
+		checks for doujinshi duplicates,
+		adds the items (if they don't exist yet) then
+		link them with the doujinshi.
 
 		Parameters
 		----------
 		doujinshi : dict
 			A dictionary containing doujinshi data. Expected fields:
 				Single-valued:
-					'id',
-					'path',
-					'note',
+					'id', 'path', 'note',
 					'full_name', 'full_name_original',
 					'pretty_name', 'pretty_name_original',
 				List-like:
@@ -315,17 +316,17 @@ class DatabaseManager:
 					'pages'.
 
 		user_prompt : bool, default=True
-			Whether to prompt the user during validation.
+			Whether to prompt the user during doujinshi validation.
 			If False, it will not alert user about empty list-like attributes or warnings.
 
 		Returns
 		-------
-		DatabaseStatus
+		status : DatabaseStatus
 			Status of the operation:
-				DatabaseStatus.OK if insertion succeeds.
-				DatabaseStatus.NON_FATAL_VALIDATION_FAILED if validation fails.
-				DatabaseStatus.NON_FATAL_ITEM_DUPLICATE if doujinshi (or its path) already exists.
-				DatabaseStatus.FATAL on other errors.
+				DatabaseStatus.OK - insertion succeeded.
+				DatabaseStatus.NON_FATAL_VALIDATION_FAILED - validation failed.
+				DatabaseStatus.NON_FATAL_ITEM_DUPLICATE - doujinshi (or its path) exists.
+				DatabaseStatus.FATAL - other errors.
 		"""
 		try:
 			if not validate_doujinshi(doujinshi, user_prompt=user_prompt):
@@ -386,7 +387,7 @@ class DatabaseManager:
 				return DatabaseStatus.FATAL
 
 
-	def _add_item_to_doujinshi(self, doujinshi_id, model, relation_name, value):
+	def _add_item_to_doujinshi(self, doujinshi_id, model, relation_name, name):
 		"""Add a single `item` to an existing `Doujinshi`.
 
 		Use public methods whenever possible.
@@ -402,17 +403,17 @@ class DatabaseManager:
 		relation_name : "parodies", "characters", "tags", "artists", "groups" or "languages"
 			Name of the list-like relationship of `doujinshi_model`.
 
-		value : str
+		name : str
 			Name of the item to add.
 
 		Returns
 		-------
-		DatabaseStatus
+		status: DatabaseStatus
 			Status of the operation:
-				DatabaseStatus.OK if item is successfully added.
-				DatabaseStatus.NON_FATAL_ITEM_DUPLICATE if item is already linked to doujinshi.
-				DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND if doujinshi or item not found.
-				DatabaseStatus.FATAL on other errors.
+				DatabaseStatus.OK - item addeded.
+				DatabaseStatus.NON_FATAL_ITEM_DUPLICATE - item already linked to doujinshi.
+				DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND - doujinshi or item not found.
+				DatabaseStatus.FATAL - other errors.
 		"""
 		with self.session() as session:
 			statement = select(Doujinshi).where(Doujinshi.id == doujinshi_id)
@@ -421,23 +422,23 @@ class DatabaseManager:
 				self.logger.item_not_found(DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND, Doujinshi, doujinshi_id)
 				return DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND
 
-			statement = select(model).where(model.name == value)
+			statement = select(model).where(model.name == name)
 			model_to_add = session.scalar(statement)
 			if not model_to_add:
-				self.logger.item_not_found(DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND, model, value)
+				self.logger.item_not_found(DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND, model, name)
 				return DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND
 
 			try:
 				getattr(doujinshi, relation_name).append(model_to_add)
 				session.commit()
 			except IntegrityError as e:
-				self.logger.doujinshi_item_duplicate(DatabaseStatus.NON_FATAL_ITEM_DUPLICATE, model, value, doujinshi_id)
+				self.logger.doujinshi_item_duplicate(DatabaseStatus.NON_FATAL_ITEM_DUPLICATE, model, name, doujinshi_id)
 				return DatabaseStatus.NON_FATAL_ITEM_DUPLICATE
 			except Exception as e:
 				self.logger.exception(DatabaseStatus.FATAL, e)
 				return DatabaseStatus.FATAL
 			else:
-				self.logger.item_added_to_doujinshi(DatabaseStatus.OK, model, value, doujinshi_id)
+				self.logger.item_added_to_doujinshi(DatabaseStatus.OK, model, name, doujinshi_id)
 				return DatabaseStatus.OK
 
 
@@ -454,16 +455,16 @@ class DatabaseManager:
 
 		pages : list of str, default=None
 			Filenames of the new pages in order.
-			If None or empty, all pages are removed.
+			If None or empty, doujinshi's pages are removed.
 
 		Returns
 		-------
 		DatabaseStatus
 			Status of the operation:
-				DatabaseStatus.OK if pages are successfully updated.
-				DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND if doujinshi doesn't exist.
-				DatabaseStatus.NON_FATAL_ITEM_DUPLICATE if duplicate page filenames are detected.
-				DatabaseStatus.FATAL on other errors.
+				DatabaseStatus.OK - pages updated.
+				DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND - doujinshi not found.
+				DatabaseStatus.NON_FATAL_ITEM_DUPLICATE - duplicate page filenames detected.
+				DatabaseStatus.FATAL - other errors.
 		"""
 		with self.session() as session:
 			statement = select(Doujinshi).where(Doujinshi.id == doujinshi_id)
@@ -501,38 +502,38 @@ class DatabaseManager:
 				return DatabaseStatus.OK
 
 
-	def add_parody_to_doujinshi(self, doujinshi_id, value):
+	def add_parody_to_doujinshi(self, doujinshi_id, name):
 		"""Add a `Parody` to an existing `doujinshi`."""
-		return self._add_item_to_doujinshi(doujinshi_id, Parody, "parodies", value)
-	def add_character_to_doujinshi(self, doujinshi_id, value):
+		return self._add_item_to_doujinshi(doujinshi_id, Parody, "parodies", name)
+	def add_character_to_doujinshi(self, doujinshi_id, name):
 		"""Add a `Character` to an existing `doujinshi`."""
-		return self._add_item_to_doujinshi(doujinshi_id, Character, "characters", value)
-	def add_tag_to_doujinshi(self, doujinshi_id, value):
+		return self._add_item_to_doujinshi(doujinshi_id, Character, "characters", name)
+	def add_tag_to_doujinshi(self, doujinshi_id, name):
 		"""Add a `Tag` to an existing `doujinshi`."""
-		return self._add_item_to_doujinshi(doujinshi_id, Tag, "tags", value)
-	def add_artist_to_doujinshi(self, doujinshi_id, value):
+		return self._add_item_to_doujinshi(doujinshi_id, Tag, "tags", name)
+	def add_artist_to_doujinshi(self, doujinshi_id, name):
 		"""Add an `Artist` to an existing `doujinshi`."""
-		return self._add_item_to_doujinshi(doujinshi_id, Artist, "artists", value)
-	def add_group_to_doujinshi(self, doujinshi_id, value):
+		return self._add_item_to_doujinshi(doujinshi_id, Artist, "artists", name)
+	def add_group_to_doujinshi(self, doujinshi_id, name):
 		"""Add a `Group` to an existing `doujinshi`."""
-		return self._add_item_to_doujinshi(doujinshi_id, Group, "groups", value)
-	def add_language_to_doujinshi(self, doujinshi_id, value):
+		return self._add_item_to_doujinshi(doujinshi_id, Group, "groups", name)
+	def add_language_to_doujinshi(self, doujinshi_id, name):
 		"""Add a `Language` to an existing `doujinshi`."""
-		return self._add_item_to_doujinshi(doujinshi_id, Language, "languages", value)
+		return self._add_item_to_doujinshi(doujinshi_id, Language, "languages", name)
 	def add_pages_to_doujinshi(self, doujinshi_id, pages):
 		"""Remove old `pages` and add new pages for an existing `doujinshi`."""
 		return self._set_pages_to_doujinshi(doujinshi_id, pages)
 
 
-	def _remove_item_from_doujinshi(self, doujinshi_id, model, relation_name, value):
-		"""Remove an `item` from a `Doujinshi`.
+	def _remove_item_from_doujinshi(self, doujinshi_id, model, relation_name, name):
+		"""Remove an `item` from an existing `Doujinshi`.
 
 		Use public methods whenever possible.
 
 		Parameters
 		----------
 		doujinshi_id : int
-			ID of the doujinshi to which the item should be removed.
+			ID of the doujinshi from which the item should be removed.
 
 		model : `Parody`, `Character`, `Tag`, `Artist`, `Group` or `Language`
 			The model of the items to remove.
@@ -540,16 +541,16 @@ class DatabaseManager:
 		relation_name : "parodies", "characters", "tags", "artists", "groups" or "languages"
 			Name of the list-like relationship of `doujinshi_model`.
 
-		value : str
+		name : str
 			Name of the item to remove.
 
 		Returns
 		-------
 		DatabaseStatus
 			Status of the operation:
-				DatabaseStatus.OK if item is successfully removed.
-				DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND if doujinshi or item not found or item is not associated with the doujinshi.
-				DatabaseStatus.FATAL on other errors.
+				DatabaseStatus.OK - item successfully removed.
+				DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND - doujinshi or item not found, or item not associated with doujinshi.
+				DatabaseStatus.FATAL - other errors.
 		"""
 		with self.session() as session:
 			statement = select(Doujinshi).where(Doujinshi.id == doujinshi_id)
@@ -558,10 +559,10 @@ class DatabaseManager:
 				self.logger.item_not_found(DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND, Doujinshi, doujinshi_id)
 				return DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND
 
-			statement = select(model).where(model.name == value)
+			statement = select(model).where(model.name == name)
 			model_to_remove = session.scalar(statement)
 			if not model_to_remove:
-				self.logger.item_not_found(DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND, model, value)
+				self.logger.item_not_found(DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND, model, name)
 				return DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND
 
 			try:
@@ -569,44 +570,44 @@ class DatabaseManager:
 
 				if model_to_remove not in model_list:
 					return_status = DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND
-					self.logger.item_not_in_doujinshi(return_status, model, value, doujinshi_id)
+					self.logger.item_not_in_doujinshi(return_status, model, name, doujinshi_id)
 					return return_status
 
 				model_list.remove(model_to_remove)
 				session.commit()
 
-				self.logger.item_removed_from_doujinshi(DatabaseStatus.OK, model, value, doujinshi_id)
+				self.logger.item_removed_from_doujinshi(DatabaseStatus.OK, model, name, doujinshi_id)
 				return DatabaseStatus.OK
 			except Exception as e:
 				self.logger.exception(DatabaseStatus.FATAL, e)
 				return DatabaseStatus.FATAL
 
 
-	def remove_parody_from_doujinshi(self, doujinshi_id, value):
+	def remove_parody_from_doujinshi(self, doujinshi_id, name):
 		"""Remove a `Parody` from an existing `doujinshi`."""
-		return self._remove_item_from_doujinshi(doujinshi_id, Parody, "parodies", value)
-	def remove_character_from_doujinshi(self, doujinshi_id, value):
+		return self._remove_item_from_doujinshi(doujinshi_id, Parody, "parodies", name)
+	def remove_character_from_doujinshi(self, doujinshi_id, name):
 		"""Remove a `Character` from an existing `doujinshi`."""
-		return self._remove_item_from_doujinshi(doujinshi_id, Character, "characters", value)
-	def remove_tag_from_doujinshi(self, doujinshi_id, value):
+		return self._remove_item_from_doujinshi(doujinshi_id, Character, "characters", name)
+	def remove_tag_from_doujinshi(self, doujinshi_id, name):
 		"""Remove a `Tag` from an existing `doujinshi`."""
-		return self._remove_item_from_doujinshi(doujinshi_id, Tag, "tags", value)
-	def remove_artist_from_doujinshi(self, doujinshi_id, value):
+		return self._remove_item_from_doujinshi(doujinshi_id, Tag, "tags", name)
+	def remove_artist_from_doujinshi(self, doujinshi_id, name):
 		"""Remove a `Artist` from an existing `doujinshi`."""
-		return self._remove_item_from_doujinshi(doujinshi_id, Artist, "artists", value)
-	def remove_group_from_doujinshi(self, doujinshi_id, value):
+		return self._remove_item_from_doujinshi(doujinshi_id, Artist, "artists", name)
+	def remove_group_from_doujinshi(self, doujinshi_id, name):
 		"""Remove a `Group` from an existing `doujinshi`."""
-		return self._remove_item_from_doujinshi(doujinshi_id, Group, "groups", value)
-	def remove_language_from_doujinshi(self, doujinshi_id, value):
+		return self._remove_item_from_doujinshi(doujinshi_id, Group, "groups", name)
+	def remove_language_from_doujinshi(self, doujinshi_id, name):
 		"""Remove a `Language` from an existing `doujinshi`."""
-		return self._remove_item_from_doujinshi(doujinshi_id, Language, "languages", value)
+		return self._remove_item_from_doujinshi(doujinshi_id, Language, "languages", name)
 	def remove_all_pages_from_doujinshi(self, doujinshi_id):
-		"""Remove `pages` from an existing `doujinshi`."""
+		"""Remove all `pages` from an existing `doujinshi`."""
 		return self._set_pages_to_doujinshi(doujinshi_id, None)
 
 
 	def remove_doujinshi(self, doujinshi_id):
-		"""Remove a `doujinshi` from the database by its ID.
+		"""Remove a `doujinshi` (and its related items) from the database by its ID.
 
 		Parameters
 		----------
@@ -617,9 +618,9 @@ class DatabaseManager:
 		-------
 		DatabaseStatus
 			Status of the operation:
-				DatabaseStatus.OK if removal succeeds.
-				DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND if doujinshi doesn't exist.
-				DatabaseStatus.FATAL on other errors.
+				DatabaseStatus.OK - doujinshi removed.
+				DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND - doujinshi not found.
+				DatabaseStatus.FATAL - other errors.
 		"""
 		with self.session() as session:
 			statement = select(Doujinshi).where(Doujinshi.id == doujinshi_id)
@@ -657,10 +658,10 @@ class DatabaseManager:
 		-------
 		DatabaseStatus
 			Status of the operation:
-				DatabaseStatus.OK if the update succeeds.
-				DatabaseStatus.NON_FATAL_ITEM_DUPLICATE if "path" column is duplicate.
-				DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND if the doujinshi doesn't exist.
-				DatabaseStatus.FATAL on other unexpected errors.
+				DatabaseStatus.OK - update succeeded.
+				DatabaseStatus.NON_FATAL_ITEM_DUPLICATE - "path" column duplicate.
+				DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND - doujinshi not found.
+				DatabaseStatus.FATAL - other errors.
 		"""
 		with self.session() as session:
 			statement = select(Doujinshi).where(Doujinshi.id == doujinshi_id)
@@ -704,33 +705,33 @@ class DatabaseManager:
 		return self._update_column_of_doujinshi(doujinshi_id, "path", pathlib.Path(value).as_posix())
 
 
-	def _get_count_by_name(self, model, values, session=None):
-		"""Get counts of multiple items by name for a given model.
+	def _get_count_by_name(self, model, names, session=None):
+		"""Get the number of `doujinshi` associated with each `item`.
 
 		Parameters
 		----------
 		model : `Parody`, `Character`, `Tag`, `Artist`, `Group` or `Language`
 			Mdel to retrieve counts.
 
-		values : list of str
-			Names of the items to retrieve counts.
+		names : list of str
+			Names of the items to retrieve counts for.
 
 		session : sqlalchemy.orm.Session, default=None
 			SQLAlchemy session to use for the query.
 
 		Returns
 		-------
-		DatabaseStatus
-			DatabaseStatus.OK if the query succeeds.
-			DatabaseStatus.FATAL if an exception occurs.
+		status : DatabaseStatus
+			DatabaseStatus.OK - count retrieved.
+			DatabaseStatus.FATAL - error occured.
 
 		count_dict : dict
 			Dictionary mapping item names to their counts. Items not found will have count 0.
 		"""
-		if not values:
+		if not names:
 			return DatabaseStatus.OK, {}
 
-		statement = select(model.name, model.count).where(model.name.in_(values))
+		statement = select(model.name, model.count).where(model.name.in_(names))
 
 		try:
 			if session:
@@ -740,35 +741,35 @@ class DatabaseManager:
 					count_dict = dict(session_in.execute(statement).all())
 
 			# fill in missing ones with 0
-			return DatabaseStatus.OK, {name: count_dict.get(name, 0) for name in values}
+			return DatabaseStatus.OK, {name: count_dict.get(name, 0) for name in names}
 		except Exception as e:
 			self.logger.exception(DatabaseStatus.FATAL, e)
 			return DatabaseStatus.FATAL, {}
 
 
-	def get_count_of_parodies(self, values):
-		"""Get counts of parodies by a list of names."""
-		return self._get_count_by_name(Parody, values)
-	def get_count_of_characters(self, values):
-		"""Get counts of characters by a list of names."""
-		return self._get_count_by_name(Character, values)
-	def get_count_of_tags(self, values):
-		"""Get counts of tags by a list of names."""
-		return self._get_count_by_name(Tag, values)
-	def get_count_of_artists(self, values):
-		"""Get counts of artists by a list of names."""
-		return self._get_count_by_name(Artist, values)
-	def get_count_of_groups(self, values):
-		"""Get counts of groups by a list of names."""
-		return self._get_count_by_name(Group, values)
-	def get_count_of_languages(self, values):
-		"""Get counts of languages by a list of names."""
-		return self._get_count_by_name(Language, values)
+	def get_count_of_parodies(self, names):
+		"""Get counts of `parodies` by a list of names."""
+		return self._get_count_by_name(Parody, names)
+	def get_count_of_characters(self, names):
+		"""Get counts of `characters` by a list of names."""
+		return self._get_count_by_name(Character, names)
+	def get_count_of_tags(self, names):
+		"""Get counts of `tags` by a list of names."""
+		return self._get_count_by_name(Tag, names)
+	def get_count_of_artists(self, names):
+		"""Get counts of `artists` by a list of names."""
+		return self._get_count_by_name(Artist, names)
+	def get_count_of_groups(self, names):
+		"""Get counts of `groups` by a list of names."""
+		return self._get_count_by_name(Group, names)
+	def get_count_of_languages(self, names):
+		"""Get counts of `languages` by a list of names."""
+		return self._get_count_by_name(Language, names)
 
 
 	def get_doujinshi(self, doujinshi_id):
 		"""
-		Retrieve a doujinshi and its associated data by ID.
+		Retrieve a doujinshi and its data by ID.
 
 		Parameters
 		----------
@@ -777,13 +778,13 @@ class DatabaseManager:
 
 		Returns
 		-------
-		DatabaseStatus
-			DatabaseStatus.OK if the doujinshi is found.
-			DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND if doujinshi doesn't exist.
-			DatabaseStatus.FATAL on other errors.
+		status : DatabaseStatus
+			DatabaseStatus.OK - doujinshi retrieved.
+			DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND - doujinshi not found.
+			DatabaseStatus.FATAL - other errors.
 
 		doujinshi : dict or None
-			A dictionary if doujinshi is found, containing these fields:
+			A dictionary if found, containing these fields:
 				Single-valued:
 					'id',
 					'path',
@@ -794,7 +795,7 @@ class DatabaseManager:
 					'parodies', 'characters', 'tags',
 					'artists', 'groups', 'languages',
 					'pages'.
-			None if doujinshi doesn't exist.
+			Otherwise None.
 		"""
 		with self.session() as session:
 			statement = select(Doujinshi).where(Doujinshi.id == doujinshi_id)
@@ -830,25 +831,25 @@ class DatabaseManager:
 			return DatabaseStatus.OK, doujinshi_dict
 
 
-	def get_doujinshi_in_page(self, page_size, page_number, n_doujinshis=None):
-		"""Retrieve a paginated list of doujinshi.
+	def get_doujinshi_in_page(self, page_size, page_number, n_doujinshi=None):
+		"""Retrieve a paginated list of (latest ID) doujinshi.
 
 		Parameters
 		----------
 		page_size : int
-			Number of doujinshi in a page.
+			Number of doujinshi per page.
 
 		page_number : int
-			Page number to retrieve, 1-based.
+			Page number to retrieve (1-based).
 
-		n_doujinshis : int, default=None
-			Total number of doujinshi. If not None, optimize for later pages.
+		n_doujinshi : int, default=None
+			Total number of doujinshi. If not None, this value is used to optimize retrieval of later pages.
 
 		Returns
 		-------
-			DatabaseStatus
-				DatabaseStatus.OK if retrieval succeeds.
-				DatabaseStatus.FATAL if an unexpected error occurs.
+			status : DatabaseStatus
+				DatabaseStatus.OK - retrieval succeeded.
+				DatabaseStatus.FATAL - error occured.
 			doujinshi_list : list of dict
 				Each dict contains: 'id', 'full_name', 'path' and 'cover_filename'.
 		"""
@@ -861,9 +862,9 @@ class DatabaseManager:
 		offset = (page_number - 1) * page_size
 		limit = page_size
 
-		if n_doujinshis:
-			max_page_number = math.ceil(n_doujinshis / page_size)
-			last_page_size = n_doujinshis % page_size or page_size
+		if n_doujinshi:
+			max_page_number = math.ceil(n_doujinshi / page_size)
+			last_page_size = n_doujinshi % page_size or page_size
 
 			# Page is in second half
 			if page_number > math.ceil(max_page_number / 2):
@@ -928,9 +929,9 @@ class DatabaseManager:
 
 		Returns
 		-------
-		DatabaseStatus
-			DatabaseStatus.OK if retrieval succeeds.
-			DatabaseStatus.FATAL if an unexpected error occurs.
+		status : DatabaseStatus
+			DatabaseStatus.OK - retrieval succeeded.
+			DatabaseStatus.FATAL - error occured.
 
 		doujinshi_list : list of dict
 			Each dict contains these fields:
@@ -1026,9 +1027,9 @@ class DatabaseManager:
 
 		Returns
 		-------
-		DatabaseStatus
-			DatabaseStatus.OK if the update succeeds.
-			DatabaseStatus.FATAL if an exception occurs during the update.
+		status: DatabaseStatus
+			DatabaseStatus.OK - count updated.
+			DatabaseStatus.FATAL - error occurred.
 		"""
 		if session:
 			self._update_count(model, model_id_column, d_id_column, session)
@@ -1069,8 +1070,9 @@ class DatabaseManager:
 
 		Returns
 		-------
-		DatabaseStatus
-			DatabaseStatus.OK if all counts are successfully updated.
+		status : DatabaseStatus
+			DatabaseStatus.OK - all counts updated.
+			DatabaseStatus.FATAL - error occurred.
 		"""
 		params = [
 			(Parody, d_parody.c.parody_id, d_parody.c.doujinshi_id),
@@ -1081,10 +1083,15 @@ class DatabaseManager:
 			(Language, d_language.c.language_id, d_language.c.doujinshi_id),
 		]
 		with self.session() as session:
-			for model, model_id_column, d_id_column in params:
-				self._update_count_by_item_type(model, model_id_column, d_id_column, session)
-			session.commit()
-			return DatabaseStatus.OK
+			try:
+				for model, model_id_column, d_id_column in params:
+					self._update_count_by_item_type(model, model_id_column, d_id_column, session)
+				session.commit()
+				return DatabaseStatus.OK
+			except Exception as e:
+				self.logger.exception(DatabaseStatus.FATAL, e, 2)
+				return DatabaseStatus.FATAL
 
 
 	# TODO: implement bulk_insert
+	# TODO: check if tests include update_count...

@@ -11,7 +11,8 @@ For usage examples, refer to [TODO: UPDATE HERE](a).
 > - All CRUD methods are atomic.
 
 
-## Methods
+# Methods
+## GENERAL / DATABASE-LEVEL methods
 __DatabaseManager(*url, log_path, echo*__*=False*__*, test*__*=False*__)__
 - __Parameters:__
   - __url : *str*__\
@@ -23,14 +24,12 @@ __DatabaseManager(*url, log_path, echo*__*=False*__*, test*__*=False*__)__
   - __test : *bool, default=False*__\
     If True, initializes the database in testing mode (remember to set `url` to use an in-memory database).
 
----
 __session()__\
 Return this database's internal session.
 - __Returns:__
   - __session : *sqlalchemy.orm.Session*__\
     The internal session associated with this object.
 
----
 __create_database()__\
 Creates database schema defined in the SQLAlchemy `Base` metadata and inserts a set of default languages (**"english"**, **"japanese"**, **"textless"**, **"chinese"**) into the database.
 
@@ -40,7 +39,6 @@ Does nothing if a schema already exists.
     Status of the operation.
     - __*DatabaseStatus.OK*__ - database created.
 
----
 __create_index()__\
 (Re)Create `extra indices`.
 - __Returns:__
@@ -48,7 +46,6 @@ __create_index()__\
     Status of the operation.
     - __*DatabaseStatus.OK*__ - `extra indices` created.
 
----
 __drop_index()__\
 Drop all `extra indices`.
 - __Returns:__
@@ -56,17 +53,158 @@ Drop all `extra indices`.
     Status of the operation.
     - __*DatabaseStatus.OK*__ - `extra indices` dropped.
 
----
 __show_index()__\
 Print all indices in the database.
 
----
 __vacuum()__\
 Execute the SQLite command `VACUUM` to reduce storage size.\
 Use this after bulk inserts or creating indices.\
 Other databases may have a different command for this operation.
 
 ---
+
+## READ methods
+__how_many_doujinshi()__\
+Get the total number of `doujinshi` in the database.
+- __Returns:__
+  - __count : *int*__\
+    The total number of `doujinshi` in the database.
+
+__get_doujinshi(*doujinshi_id*)__\
+Retrieve a __full-data__ `doujinshi` and its data by ID.\
+Use this method when routing to /g/{id}.
+- __Parameters:__
+  - __doujinshi_id : *int*__\
+    ID of the `doujinshi` to retrieve.
+- __Returns:__
+  - __status : *DatabaseStatus*__\
+    Status of the operation.
+    - __*DatabaseStatus.OK*__ - `doujinshi` retrieved.
+    - __*DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND*__ - doujinshi not found.
+    - __*DatabaseStatus.FATAL*__ - other errors.
+  - __doujinshi : *dict or None*__\
+    A dict if found, otherwise None, containing these fields:
+      - Single-valued: 'id', 'path', 'note', 'full_name', 'full_name_original', 'pretty_name', 'pretty_name_original',
+      - `Item`-count dict: 'parodies', 'characters', 'tags', 'artists', 'groups', 'languages',
+      - 'pages'.
+
+__get_doujinshi_in_page(*page_size, page_number, n_doujinshis*__*=None*__)__\
+Retrieve a paginated list of latest __partial-data__ `doujinshi`.\
+Use this method when routing to /?page={page}.
+- __Parameters:__
+  - __page_size : *int*__\
+    Number of `doujinshi` per page.
+  - __page_number : *int*__\
+    Page number to retrieve (1-based).
+  - __n_doujinshi : *int, default=None*__\
+    Total number of `doujinshi`. If not None, this value is used to optimize retrieval of later pages.
+- __Returns:__
+  - __status : *DatabaseStatus*__\
+    Status of the operation.
+    - __*DatabaseStatus.OK*__ - retrieval succeeded.
+    - __*DatabaseStatus.FATAL*__ - error occurred.
+  - __doujinshi_list : *list of dict*__\
+    Each dict contains these fields: 'id', 'full_name', 'path' and 'cover_filename'.
+
+__get_doujinshi_in_range(*id_start*__*=1*__, id_end__*=None*__)__\
+Retrieve all __full-data__ `doujinshi` in an ID range.\
+Use this method when exporting or serializing data.
+- __Parameters:__
+  - __id_start : *int, default=1*__\
+    Start ID of the range (inclusive).
+  - __id_end : *int, default=None*__\
+    End ID of the range (inclusive). If None, retrieves all doujinshi from *id_start*.
+- __Returns:__
+  - __status : *DatabaseStatus*__\
+    Status of the operation.
+    - __*DatabaseStatus.OK*__ - retrieval succeeded.
+    - __*DatabaseStatus.FATAL*__ - error occurred.
+  - __doujinshi_list : *list of dict*__\
+    Each dict contains these fields:
+      - Single-valued: 'id', 'path', 'note', 'full_name', 'full_name_original', 'pretty_name', 'pretty_name_original',
+      - List of `item` names: 'parodies', 'characters', 'tags', 'artists', 'groups', 'languages', 'pages'.
+
+__get_count_of_parodies(*names*)__\
+Get the number of `doujinshi` associated with each `parody`.
+- __Parameters:__
+  - __names : *list of str*__\
+    Names of the `parodies` to retrieve counts for.
+- __Returns:__
+  - __status : *DatabaseStatus*__\
+    Status of the operation.
+    - __*DatabaseStatus.OK*__ - counts retrieved.
+    - __*DatabaseStatus.FATAL*__ - error occured.
+  - __count_dict : *dict*__\
+    Dictionary mapping `parody` names to their counts.
+
+__get_count_of_characters(*names*)__\
+Get the number of `doujinshi` associated with each `character`.
+- __Parameters:__
+  - __names : *list of str*__\
+    Names of the `characters` to retrieve counts for.
+- __Returns:__
+  - __status : *DatabaseStatus*__\
+    Status of the operation.
+    - __*DatabaseStatus.OK*__ - counts retrieved.
+    - __*DatabaseStatus.FATAL*__ - error occured.
+  - __count_dict : *dict*__\
+    Dictionary mapping `character` names to their counts.
+
+__get_count_of_tags(*names*)__\
+Get the number of `doujinshi` associated with each `tag`.
+- __Parameters:__
+  - __names : *list of str*__\
+    Names of the `tags` to retrieve counts for.
+- __Returns:__
+  - __status : *DatabaseStatus*__\
+    Status of the operation.
+    - __*DatabaseStatus.OK*__ - counts retrieved.
+    - __*DatabaseStatus.FATAL*__ - error occured.
+  - __count_dict : *dict*__\
+    Dictionary mapping `tag` names to their counts.
+
+__get_count_of_artists(*names*)__\
+Get the number of `doujinshi` associated with each `artist`.
+- __Parameters:__
+  - __names : *list of str*__\
+    Names of the `artists` to retrieve counts for.
+- __Returns:__
+  - __status : *DatabaseStatus*__\
+    Status of the operation.
+    - __*DatabaseStatus.OK*__ - counts retrieved.
+    - __*DatabaseStatus.FATAL*__ - error occured.
+  - __count_dict : *dict*__\
+    Dictionary mapping `artist` names to their counts.
+
+__get_count_of_groups(*names*)__\
+Get the number of `doujinshi` associated with each `group`.
+- __Parameters:__
+  - __names : *list of str*__\
+    Names of the `groups` to retrieve counts for.
+- __Returns:__
+  - __status : *DatabaseStatus*__\
+    Status of the operation.
+    - __*DatabaseStatus.OK*__ - counts retrieved.
+    - __*DatabaseStatus.FATAL*__ - error occured.
+  - __count_dict : *dict*__\
+    Dictionary mapping `group` names to their counts.
+
+__get_count_of_languages(*names*)__\
+Get the number of `doujinshi` associated with each `language`.
+- __Parameters:__
+  - __names : *list of str*__\
+    Names of the `languages` to retrieve counts for.
+- __Returns:__
+  - __status : *DatabaseStatus*__\
+    Status of the operation.
+    - __*DatabaseStatus.OK*__ - counts retrieved.
+    - __*DatabaseStatus.FATAL*__ - error occured.
+  - __count_dict : *dict*__\
+    Dictionary mapping `language` names to their counts.
+
+---
+
+## CREATE methods
 __insert_parody(*name*)__\
 Insert a `parody` into the database.
 - __Parameters:__
@@ -79,7 +217,6 @@ Insert a `parody` into the database.
     - __*DatabaseStatus.NON_FATAL_ITEM_DUPLICATE*__ - `parody` already exists.
     - __*DatabaseStatus.FATAL*__ - other errors.
 
----
 __insert_character(*name*)__\
 Insert a `character` into the database.
 - __Parameters:__
@@ -92,7 +229,6 @@ Insert a `character` into the database.
     - __*DatabaseStatus.NON_FATAL_ITEM_DUPLICATE*__ - `character` already exists.
     - __*DatabaseStatus.FATAL*__ - other errors.
 
----
 __insert_tag(*name*)__\
 Insert a `tag` into the database.
 - __Parameters:__
@@ -105,7 +241,6 @@ Insert a `tag` into the database.
     - __*DatabaseStatus.NON_FATAL_ITEM_DUPLICATE*__ - `tag` already exists.
     - __*DatabaseStatus.FATAL*__ - other errors.
 
----
 __insert_artist(*name*)__\
 Insert an `artist` into the database.
 - __Parameters:__
@@ -118,7 +253,6 @@ Insert an `artist` into the database.
     - __*DatabaseStatus.NON_FATAL_ITEM_DUPLICATE*__ - `artist` already exists.
     - __*DatabaseStatus.FATAL*__ - other errors.
 
----
 __insert_group(*name*)__\
 Insert a `group` into the database.
 - __Parameters:__
@@ -131,7 +265,6 @@ Insert a `group` into the database.
     - __*DatabaseStatus.NON_FATAL_ITEM_DUPLICATE*__ - `group` already exists.
     - __*DatabaseStatus.FATAL*__ - other errors.
 
----
 __insert_language(*name*)__\
 Insert a `language` into the database.
 - __Parameters:__
@@ -144,7 +277,6 @@ Insert a `language` into the database.
     - __*DatabaseStatus.NON_FATAL_ITEM_DUPLICATE*__ - `language` already exists.
     - __*DatabaseStatus.FATAL*__ - other errors.
 
----
 __insert_doujinshi(*doujinshi, user_prompt*__*=True*__)__\
 Insert a single `doujinshi` into the database.
 
@@ -166,6 +298,8 @@ Performs these actions in order: validates the doujinshi, checks for doujinshi d
     - __*DatabaseStatus.FATAL*__ - other errors.
 
 ---
+
+## UPDATE methods
 __add_parody_to_doujinshi(*doujinshi_id, name*)__\
 Add a `parody` to an existing `doujinshi`.
 - __Parameters:__
@@ -181,7 +315,6 @@ Add a `parody` to an existing `doujinshi`.
     - __*DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND*__ - `doujinshi` or `parody` not found.
     - __*DatabaseStatus.FATAL*__ - other errors.
 
----
 __add_character_to_doujinshi(*doujinshi_id, name*)__\
 Add a `character` to an existing `doujinshi`.
 - __Parameters:__
@@ -197,7 +330,6 @@ Add a `character` to an existing `doujinshi`.
     - __*DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND*__ - `doujinshi` or `character` not found.
     - __*DatabaseStatus.FATAL*__ - other errors.
 
----
 __add_tag_to_doujinshi(*doujinshi_id, name*)__\
 Add a `tag` to an existing `doujinshi`.
 - __Parameters:__
@@ -213,7 +345,6 @@ Add a `tag` to an existing `doujinshi`.
     - __*DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND*__ - `doujinshi` or `tag` not found.
     - __*DatabaseStatus.FATAL*__ - other errors.
 
----
 __add_artist_to_doujinshi(*doujinshi_id, name*)__\
 Add an `artist` to an existing `doujinshi`.
 - __Parameters:__
@@ -229,7 +360,6 @@ Add an `artist` to an existing `doujinshi`.
     - __*DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND*__ - `doujinshi` or `artist` not found.
     - __*DatabaseStatus.FATAL*__ - other errors.
 
----
 __add_group_to_doujinshi(*doujinshi_id, name*)__\
 Add a `group` to an existing `doujinshi`.
 - __Parameters:__
@@ -245,7 +375,6 @@ Add a `group` to an existing `doujinshi`.
     - __*DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND*__ - `doujinshi` or `group` not found.
     - __*DatabaseStatus.FATAL*__ - other errors.
 
----
 __add_language_to_doujinshi(*doujinshi_id, name*)__\
 Add a `language` to an existing `doujinshi`.
 - __Parameters:__
@@ -261,7 +390,6 @@ Add a `language` to an existing `doujinshi`.
     - __*DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND*__ - `doujinshi` or `language` not found.
     - __*DatabaseStatus.FATAL*__ - other errors.
 
----
 __add_pages_to_doujinshi(*doujinshi_id, pages*)__\
 __Remove__ old `pages` and __then add__ new `pages` for an existing `doujinshi`.
 - __Parameters:__
@@ -278,7 +406,6 @@ __Remove__ old `pages` and __then add__ new `pages` for an existing `doujinshi`.
     - __*DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND*__ - `doujinshi`.
     - __*DatabaseStatus.FATAL*__ - other errors.
 
----
 __remove_parody_from_doujinshi(*doujinshi_id, name*)__\
 Remove a `parody` from an existing `doujinshi`.
 - __Parameters:__
@@ -293,7 +420,6 @@ Remove a `parody` from an existing `doujinshi`.
     - __*DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND*__ - `doujinshi` or `parody` not found, or `parody` not associated with `doujinshi`.
     - __*DatabaseStatus.FATAL*__ - other errors.
 
----
 __remove_character_from_doujinshi(*doujinshi_id, name*)__\
 Remove a `character` from an existing `doujinshi`.
 - __Parameters:__
@@ -308,7 +434,6 @@ Remove a `character` from an existing `doujinshi`.
     - __*DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND*__ - `doujinshi` or `character` not found, or `character` not associated with `doujinshi`.
     - __*DatabaseStatus.FATAL*__ - other errors.
 
----
 __remove_tag_from_doujinshi(*doujinshi_id, name*)__\
 Remove a `tag` from an existing `doujinshi`.
 - __Parameters:__
@@ -323,7 +448,6 @@ Remove a `tag` from an existing `doujinshi`.
     - __*DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND*__ - `doujinshi` or `tag` not found, or `tag` not associated with `doujinshi`.
     - __*DatabaseStatus.FATAL*__ - other errors.
 
----
 __remove_artist_from_doujinshi(*doujinshi_id, name*)__\
 Remove an `artist` from an existing `doujinshi`.
 - __Parameters:__
@@ -338,7 +462,6 @@ Remove an `artist` from an existing `doujinshi`.
     - __*DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND*__ - `doujinshi` or `artist` not found, or `artist` not associated with `doujinshi`.
     - __*DatabaseStatus.FATAL*__ - other errors.
 
----
 __remove_group_from_doujinshi(*doujinshi_id, name*)__\
 Remove a `group` from an existing `doujinshi`.
 - __Parameters:__
@@ -353,7 +476,6 @@ Remove a `group` from an existing `doujinshi`.
     - __*DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND*__ - `doujinshi` or `group` not found, or `group` not associated with `doujinshi`.
     - __*DatabaseStatus.FATAL*__ - other errors.
 
----
 __remove_language_from_doujinshi(*doujinshi_id, name*)__\
 Remove a `language` from an existing `doujinshi`.
 - __Parameters:__
@@ -368,7 +490,6 @@ Remove a `language` from an existing `doujinshi`.
     - __*DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND*__ - `doujinshi` or `language` not found, or `language` not associated with `doujinshi`.
     - __*DatabaseStatus.FATAL*__ - other errors.
 
----
 __remove_all_pages_from_doujinshi(*doujinshi_id*)__\
 Remove all `pages` from an existing `doujinshi`.
 - __Parameters:__
@@ -381,21 +502,6 @@ Remove all `pages` from an existing `doujinshi`.
     - __*DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND*__ - `doujinshi` not found.
     - __*DatabaseStatus.FATAL*__ - other errors.
 
----
-__remove_doujinshi(*doujinshi_id*)__\
-Remove a `doujinshi` from the database by its ID.\
-All of its related `items` (`parodies`, `characters`, `tags`, `artists`, `groups`, `languages`, `pages`) will be removed as well.
-- __Parameters:__
-  - __doujinshi_id : *int*__\
-    ID of the `doujinshi` to remove.
-- __Returns:__
-  - __status : *DatabaseStatus*__\
-    Status of the operation.
-    - __*DatabaseStatus.OK*__ - `doujinshi` removed.
-    - __*DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND*__ - `doujinshi` not found.
-    - __*DatabaseStatus.FATAL*__ - other errors.
-
----
 __update_full_name_of_doujinshi(*doujinshi_id, value*)__\
 Update the full name of a `doujinshi`.
 - __Parameters:__
@@ -410,7 +516,6 @@ Update the full name of a `doujinshi`.
     - __*DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND*__ - `doujinshi` not found.
     - __*DatabaseStatus.FATAL*__ - other errors.
 
----
 __update_full_name_original_of_doujinshi(*doujinshi_id, value*)__\
 Update the original full name of a `doujinshi`.
 - __Parameters:__
@@ -425,7 +530,6 @@ Update the original full name of a `doujinshi`.
     - __*DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND*__ - `doujinshi` not found.
     - __*DatabaseStatus.FATAL*__ - other errors.
 
----
 __update_pretty_name_of_doujinshi(*doujinshi_id, value*)__\
 Update the pretty name of a `doujinshi`.
 - __Parameters:__
@@ -440,7 +544,6 @@ Update the pretty name of a `doujinshi`.
     - __*DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND*__ - `doujinshi` not found.
     - __*DatabaseStatus.FATAL*__ - other errors.
 
----
 __update_pretty_name_original_of_doujinshi(*doujinshi_id, value*)__\
 Update the original pretty name of a `doujinshi`.
 - __Parameters:__
@@ -455,7 +558,6 @@ Update the original pretty name of a `doujinshi`.
     - __*DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND*__ - `doujinshi` not found.
     - __*DatabaseStatus.FATAL*__ - other errors.
 
----
 __update_note_of_doujinshi(*doujinshi_id, value*)__\
 Update the note of a `doujinshi`.
 - __Parameters:__
@@ -470,7 +572,6 @@ Update the note of a `doujinshi`.
     - __*DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND*__ - `doujinshi` not found.
     - __*DatabaseStatus.FATAL*__ - other errors.
 
----
 __update_path_of_doujinshi(*doujinshi_id, value*)__\
 Update the path of a `doujinshi`.
 - __Parameters:__
@@ -486,145 +587,6 @@ Update the path of a `doujinshi`.
     - __*DatabaseStatus.NON_FATAL_ITEM_DUPLICATE*__ - path already exists.
     - __*DatabaseStatus.FATAL*__ - other errors.
 
----
-__get_count_of_parodies(*names*)__\
-Get the number of `doujinshi` associated with each `parody`.
-- __Parameters:__
-  - __names : *list of str*__\
-    Names of the `parodies` to retrieve counts for.
-- __Returns:__
-  - __status : *DatabaseStatus*__\
-    Status of the operation.
-    - __*DatabaseStatus.OK*__ - counts retrieved.
-    - __*DatabaseStatus.FATAL*__ - error occured.
-  - __count_dict : *dict*__\
-    Dictionary mapping `parody` names to their counts.
-
----
-__get_count_of_characters(*names*)__\
-Get the number of `doujinshi` associated with each `character`.
-- __Parameters:__
-  - __names : *list of str*__\
-    Names of the `characters` to retrieve counts for.
-- __Returns:__
-  - __status : *DatabaseStatus*__\
-    Status of the operation.
-    - __*DatabaseStatus.OK*__ - counts retrieved.
-    - __*DatabaseStatus.FATAL*__ - error occured.
-  - __count_dict : *dict*__\
-    Dictionary mapping `character` names to their counts.
-
----
-__get_count_of_tags(*names*)__\
-Get the number of `doujinshi` associated with each `tag`.
-- __Parameters:__
-  - __names : *list of str*__\
-    Names of the `tags` to retrieve counts for.
-- __Returns:__
-  - __status : *DatabaseStatus*__\
-    Status of the operation.
-    - __*DatabaseStatus.OK*__ - counts retrieved.
-    - __*DatabaseStatus.FATAL*__ - error occured.
-  - __count_dict : *dict*__\
-    Dictionary mapping `tag` names to their counts.
-
----
-__get_count_of_artists(*names*)__\
-Get the number of `doujinshi` associated with each `artist`.
-- __Parameters:__
-  - __names : *list of str*__\
-    Names of the `artists` to retrieve counts for.
-- __Returns:__
-  - __status : *DatabaseStatus*__\
-    Status of the operation.
-    - __*DatabaseStatus.OK*__ - counts retrieved.
-    - __*DatabaseStatus.FATAL*__ - error occured.
-  - __count_dict : *dict*__\
-    Dictionary mapping `artist` names to their counts.
-
----
-__get_count_of_groups(*names*)__\
-Get the number of `doujinshi` associated with each `group`.
-- __Parameters:__
-  - __names : *list of str*__\
-    Names of the `groups` to retrieve counts for.
-- __Returns:__
-  - __status : *DatabaseStatus*__\
-    Status of the operation.
-    - __*DatabaseStatus.OK*__ - counts retrieved.
-    - __*DatabaseStatus.FATAL*__ - error occured.
-  - __count_dict : *dict*__\
-    Dictionary mapping `group` names to their counts.
-
----
-__get_count_of_languages(*names*)__\
-Get the number of `doujinshi` associated with each `language`.
-- __Parameters:__
-  - __names : *list of str*__\
-    Names of the `languages` to retrieve counts for.
-- __Returns:__
-  - __status : *DatabaseStatus*__\
-    Status of the operation.
-    - __*DatabaseStatus.OK*__ - counts retrieved.
-    - __*DatabaseStatus.FATAL*__ - error occured.
-  - __count_dict : *dict*__\
-    Dictionary mapping `language` names to their counts.
-
----
-__get_doujinshi(*doujinshi_id*)__\
-Retrieve a `doujinshi` and its data by ID.
-- __Parameters:__
-  - __doujinshi_id : *int*__\
-    ID of the `doujinshi` to retrieve.
-- __Returns:__
-  - __status : *DatabaseStatus*__\
-    Status of the operation.
-    - __*DatabaseStatus.OK*__ - `doujinshi` retrieved.
-    - __*DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND*__ - doujinshi not found.
-    - __*DatabaseStatus.FATAL*__ - other errors.
-  - __doujinshi : *dict or None*__\
-    A dict if found, otherwise None, containing these fields:
-      - Single-valued: 'id', 'path', 'note', 'full_name', 'full_name_original', 'pretty_name', 'pretty_name_original',
-      - `Item`-count dict: 'parodies', 'characters', 'tags', 'artists', 'groups', 'languages',
-      - 'pages'.
-
----
-__get_doujinshi_in_page(*page_size, page_number, n_doujinshis*__*=None*__)__\
-Retrieve a paginated list of latest `doujinshi`.
-- __Parameters:__
-  - __page_size : *int*__\
-    Number of `doujinshi` per page.
-  - __page_number : *int*__\
-    Page number to retrieve (1-based).
-  - __n_doujinshi : *int, default=None*__\
-    Total number of `doujinshi`. If not None, this value is used to optimize retrieval of later pages.
-- __Returns:__
-  - __status : *DatabaseStatus*__\
-    Status of the operation.
-    - __*DatabaseStatus.OK*__ - retrieval succeeded.
-    - __*DatabaseStatus.FATAL*__ - error occurred.
-  - __doujinshi_list : *list of dict*__\
-    Each dict contains these fields: 'id', 'full_name', 'path' and 'cover_filename'.
-
----
-__get_doujinshi_in_range(*id_start*__*=1*__, id_end__*=None*__)__\
-Retrieve all `doujinshi` in an ID range.
-- __Parameters:__
-  - __id_start : *int, default=1*__\
-    Start ID of the range (inclusive).
-  - __id_end : *int, default=None*__\
-    End ID of the range (inclusive). If None, retrieves all doujinshi from *id_start*.
-- __Returns:__
-  - __status : *DatabaseStatus*__\
-    Status of the operation.
-    - __*DatabaseStatus.OK*__ - retrieval succeeded.
-    - __*DatabaseStatus.FATAL*__ - error occurred.
-  - __doujinshi_list : *list of dict*__\
-    Each dict contains these fields:
-      - Single-valued: 'id', 'path', 'note', 'full_name', 'full_name_original', 'pretty_name', 'pretty_name_original',
-      - List of `item` names: 'parodies', 'characters', 'tags', 'artists', 'groups', 'languages', 'pages'.
-
----
 __update_count_of_parody()__\
 Update count of all `parodies`.
 - __Returns:__
@@ -633,7 +595,6 @@ Update count of all `parodies`.
     - __*DatabaseStatus.OK*__ - count updated.
     - __*DatabaseStatus.FATAL*__ - error occurred.
 
----
 __update_count_of_character()__\
 Update count of all `characters`.
 - __Returns:__
@@ -642,7 +603,6 @@ Update count of all `characters`.
     - __*DatabaseStatus.OK*__ - count updated.
     - __*DatabaseStatus.FATAL*__ - error occurred.
 
----
 __update_count_of_tag()__\
 Update count of all `tags`.
 - __Returns:__
@@ -651,7 +611,6 @@ Update count of all `tags`.
     - __*DatabaseStatus.OK*__ - count updated.
     - __*DatabaseStatus.FATAL*__ - error occurred.
 
----
 __update_count_of_artist()__\
 Update count of all `artists`.
 - __Returns:__
@@ -660,7 +619,6 @@ Update count of all `artists`.
     - __*DatabaseStatus.OK*__ - count updated.
     - __*DatabaseStatus.FATAL*__ - error occurred.
 
----
 __update_count_of_group()__\
 Update count of all `groups`.
 - __Returns:__
@@ -669,7 +627,6 @@ Update count of all `groups`.
     - __*DatabaseStatus.OK*__ - count updated.
     - __*DatabaseStatus.FATAL*__ - error occurred.
 
----
 __update_count_of_language()__\
 Update count of all `languages`.
 - __Returns:__
@@ -678,7 +635,6 @@ Update count of all `languages`.
     - __*DatabaseStatus.OK*__ - count updated.
     - __*DatabaseStatus.FATAL*__ - error occurred.
 
----
 __update_count_of_all()__\
 Update counts of all `items`.
 - __Returns:__
@@ -686,3 +642,17 @@ Update counts of all `items`.
     Status of the operation.
     - __*DatabaseStatus.OK*__ - all counts updated.
     - __*DatabaseStatus.FATAL*__ - error occurred.
+
+## DELETE methods
+__remove_doujinshi(*doujinshi_id*)__\
+Remove a `doujinshi` from the database by its ID.\
+All of its related `items` (`parodies`, `characters`, `tags`, `artists`, `groups`, `languages`, `pages`) will be removed as well.
+- __Parameters:__
+  - __doujinshi_id : *int*__\
+    ID of the `doujinshi` to remove.
+- __Returns:__
+  - __status : *DatabaseStatus*__\
+    Status of the operation.
+    - __*DatabaseStatus.OK*__ - `doujinshi` removed.
+    - __*DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND*__ - `doujinshi` not found.
+    - __*DatabaseStatus.FATAL*__ - other errors.

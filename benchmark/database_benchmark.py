@@ -426,4 +426,6 @@ if __name__ == "__main__":
 	# ----------------------------
 	# benchmark_get_doujinshi_in_page(dbm, n_pages=500)
 
-	print(type(Doujinshi))
+	start = time.perf_counter()
+	print(dbm.how_many_doujinshi())
+	print(time.perf_counter() - start)

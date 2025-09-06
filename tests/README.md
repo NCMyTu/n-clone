@@ -10,7 +10,7 @@ pytest -v
 Require numpy.  
 From the project root:
 ```bash
-python -m tests.database_benchmark
+python -m benchmark.database_benchmark
 ```
 
 ## View Benchmark Report

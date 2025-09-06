@@ -1093,5 +1093,19 @@ class DatabaseManager:
 				return DatabaseStatus.FATAL
 
 
+	def how_many_doujinshi(self):
+		"""Get the total number of `doujinshi` in the database.
+
+		Returns
+		-------
+		count : int
+			The total number of `doujinshi` rows in the database.
+		"""
+		with self.session() as session:
+			return session.scalar(select(func.count()).select_from(Doujinshi))
+
+
 	# TODO: implement bulk_insert
-	# TODO: check if tests include update_count...
+	# TODO: check if tests include update_count
+	#       add usage examples
+	#       add db schema description

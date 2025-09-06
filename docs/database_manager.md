@@ -9,6 +9,7 @@ For usage examples, refer to [TODO: UPDATE HERE](a).
 > - This class (currently) is specific to **SQLite**.  
 > - Call `update_count` methods after any update operations, since update methods themselves don't update the counts.
 > - All CRUD methods are atomic.
+> - When inserting a doujinshi, its `item` names (except `pages`) should be in lowercase.
 
 
 # Methods
@@ -72,7 +73,8 @@ Get the total number of `doujinshi` in the database.
 
 __get_doujinshi(*doujinshi_id*)__\
 Retrieve a __full-data__ `doujinshi` and its data by ID.\
-Use this method when routing to /g/{id}.
+Use this method when routing to /g/{id}.\
+__Note__: `Item`-count dict fields are not guaranteed to be sorted.
 - __Parameters:__
   - __doujinshi_id : *int*__\
     ID of the `doujinshi` to retrieve.
@@ -86,7 +88,7 @@ Use this method when routing to /g/{id}.
     A dict if found, otherwise None, containing these fields:
       - Single-valued: 'id', 'path', 'note', 'full_name', 'full_name_original', 'pretty_name', 'pretty_name_original',
       - `Item`-count dict: 'parodies', 'characters', 'tags', 'artists', 'groups', 'languages',
-      - 'pages'.
+      - 'pages'.\
 
 __get_doujinshi_in_page(*page_size, page_number, n_doujinshis*__*=None*__)__\
 Retrieve a paginated list of latest __partial-data__ `doujinshi`.\
@@ -109,6 +111,7 @@ Use this method when routing to /?page={page}.
 __get_doujinshi_in_range(*id_start*__*=1*__, id_end__*=None*__)__\
 Retrieve all __full-data__ `doujinshi` in an ID range.\
 Use this method when exporting or serializing data.
+__Note__: List-like fields are not guaranteed to be sorted.
 - __Parameters:__
   - __id_start : *int, default=1*__\
     Start ID of the range (inclusive).
@@ -301,7 +304,7 @@ Performs these actions in order: validates the doujinshi, checks for doujinshi d
 
 ## UPDATE methods
 __add_parody_to_doujinshi(*doujinshi_id, name*)__\
-Add a `parody` to an existing `doujinshi`.
+Add an existing `parody` to an existing `doujinshi` by name.
 - __Parameters:__
   - __doujinshi_id : *int*__\
     ID of the `doujinshi` to which the `parody` should be added.
@@ -316,7 +319,7 @@ Add a `parody` to an existing `doujinshi`.
     - __*DatabaseStatus.FATAL*__ - other errors.
 
 __add_character_to_doujinshi(*doujinshi_id, name*)__\
-Add a `character` to an existing `doujinshi`.
+Add an existing `character` to an existing `doujinshi` by name.
 - __Parameters:__
   - __doujinshi_id : *int*__\
     ID of the `doujinshi` to which the `character` should be added.
@@ -331,7 +334,7 @@ Add a `character` to an existing `doujinshi`.
     - __*DatabaseStatus.FATAL*__ - other errors.
 
 __add_tag_to_doujinshi(*doujinshi_id, name*)__\
-Add a `tag` to an existing `doujinshi`.
+Add an existing `tag` to an existing `doujinshi` by name.
 - __Parameters:__
   - __doujinshi_id : *int*__\
     ID of the `doujinshi` to which the `tag` should be added.
@@ -346,7 +349,7 @@ Add a `tag` to an existing `doujinshi`.
     - __*DatabaseStatus.FATAL*__ - other errors.
 
 __add_artist_to_doujinshi(*doujinshi_id, name*)__\
-Add an `artist` to an existing `doujinshi`.
+Add an existing `artist` to an existing `doujinshi` by name.
 - __Parameters:__
   - __doujinshi_id : *int*__\
     ID of the `doujinshi` to which the `artist` should be added.
@@ -361,7 +364,7 @@ Add an `artist` to an existing `doujinshi`.
     - __*DatabaseStatus.FATAL*__ - other errors.
 
 __add_group_to_doujinshi(*doujinshi_id, name*)__\
-Add a `group` to an existing `doujinshi`.
+Add an existing `group` to an existing `doujinshi` by name.
 - __Parameters:__
   - __doujinshi_id : *int*__\
     ID of the `doujinshi` to which the `group` should be added.
@@ -376,7 +379,7 @@ Add a `group` to an existing `doujinshi`.
     - __*DatabaseStatus.FATAL*__ - other errors.
 
 __add_language_to_doujinshi(*doujinshi_id, name*)__\
-Add a `language` to an existing `doujinshi`.
+Add an existing `language` to an existing `doujinshi` by name.
 - __Parameters:__
   - __doujinshi_id : *int*__\
     ID of the `doujinshi` to which the `language` should be added.

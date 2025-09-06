@@ -15,26 +15,6 @@ def is_non_empty_str(s):
     return True
 
 
-def create_empty_doujinshi():
-	return {
-		"id": None,
-		"full_name": "",
-		"full_name_original": "",
-		"pretty_name": "",
-		"pretty_name_original": "",
-		"path": "",
-		"pages": [],
-		"note": "",
-
-		"parodies": [],
-		"characters": [],
-		"tags": [],
-		"artists": [],
-		"groups": [],
-		"languages": []
-	}
-
-
 def validate_doujinshi(doujinshi, user_prompt=True):
 	errors = []
 	warnings = []
@@ -93,6 +73,10 @@ def validate_doujinshi(doujinshi, user_prompt=True):
 				if value != value.strip():
 					warnings.append(f"{attr} has leading/trailing spaces.")
 
+		if attr in ["parodies", "characters", "tags", "artists", "groups", "languages"]:
+			if value != [v.lower() for v in value]:
+				errors.append(f"{attr} has uppercase character.")
+
 	if doujinshi["path"] and doujinshi["path"] != Path(doujinshi["path"]).as_posix():
 		warnings.append("path should use POSIX-style separator (no \\)")
 
@@ -136,11 +120,3 @@ def validate_doujinshi(doujinshi, user_prompt=True):
 			print("-" * 50)
 			return answer == "Y"
 		print("Please enter exactly 'Y' or 'n'.")
-
-
-# d = create_empty_doujinshi()
-# # d["id"] = 1
-# d["path"] = "path"
-# d["full_name"] = "full_name"
-
-# validate_doujinshi(d, user_prompt=True)

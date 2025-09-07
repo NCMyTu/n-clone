@@ -31,7 +31,7 @@ class Page(Base):
 		back_populates="pages")
 
 	__table_args__ = (
-		CheckConstraint("filename <> ''"),
+		CheckConstraint("length(trim(filename, ' \n\t\r\b\v\f')) > 0"),
 		CheckConstraint("order_number > 0"),
 		UniqueConstraint("doujinshi_id", "filename"),
 		# UniqueConstraint("doujinshi_id", "order_number"),

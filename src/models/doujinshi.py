@@ -61,8 +61,11 @@ class Doujinshi(Base):
 	)
 
 	__table_args__ = (
-		CheckConstraint("full_name <> ''"),
-		CheckConstraint("length(trim(full_name)) > 0"),
-		CheckConstraint("path <> ''"),
-		CheckConstraint("length(trim(path)) > 0")
+		CheckConstraint("length(trim(full_name, ' \n\t\r\b\v\t\f')) > 0"),
+		CheckConstraint("length(trim(path, ' \n\t\r\b\v\f')) > 0"),
+
+		CheckConstraint("length(trim(full_name_original, ' \n\t\r\b\v\f')) > 0"),
+		CheckConstraint("length(trim(pretty_name, ' \n\t\r\b\v\f')) > 0"),
+		CheckConstraint("length(trim(pretty_name_original, ' \n\t\r\b\v\f')) > 0"),
+		CheckConstraint("length(trim(note, ' \n\t\r\b\v\f')) > 0")
 	)

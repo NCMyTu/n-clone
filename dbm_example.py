@@ -6,9 +6,9 @@ def sample_doujinshi():
 	return {
 		"id": 177,
 		"full_name": "This is a sample doujinshi",
-		"pretty_name": "is a sample",
-		"full_name_original": "これは日本語のタイトルです",
-		"pretty_name_original": "日本語",
+		"pretty_name": "s is a sam",
+		"full_name_original": "a",
+		"pretty_name_original": "a",
 		"path": "sample/path",
 		"pages": ["f1.jpg", "f2.png"],
 		"note": "This is a sample note",
@@ -25,12 +25,12 @@ def sample_doujinshi():
 def print_doujinshi(doujinshi):
 	print("-" * 25)
 	for k, v in doujinshi.items():
-		print(f"{k}: {v}")
+		print(f"   {k}: {v}")
 	print("-" * 25)
 
 
 if __name__ == "__main__":
-	dbm = DatabaseManager(url="sqlite:///:memory:", log_path="db.log")
+	dbm = DatabaseManager(url="sqlite:///:memory:", log_path="db.log", echo=False)
 
 	dbm.create_database()
 	# Optionally disable logging to avoid cluttering the output.
@@ -45,8 +45,15 @@ if __name__ == "__main__":
 	print("After insert:")
 	print_doujinshi(retrieved)
 
+	# ------ Insert another doujinshi ------
+	doujinshi = sample_doujinshi()
+	doujinshi["id"] += 1
+	doujinshi["path"] = "new/path"
+	doujinshi["characters"] = doujinshi["characters"][1:]
+	dbm.insert_doujinshi(doujinshi)
+
 	# ------ Update counts ------
-	dbm.update_count_of_all()
+	# dbm.update_count_of_all()
 
 	status, retrieved = dbm.get_doujinshi(doujinshi["id"])
 	print("After updating counts:")
@@ -83,3 +90,10 @@ if __name__ == "__main__":
 	status, retrieved = dbm.get_doujinshi(d_id)
 	print("After updates and removals:")
 	print_doujinshi(retrieved)
+
+	# ------ If you want to run raw SQL ------
+	raw_sql = text("SELECT * FROM character")
+	with dbm.session() as session:
+		characters = session.execute(raw_sql).all()
+		for character in characters:
+			print(f"id: {character[0]}, name: {character[1]}, count: {character[2]}")

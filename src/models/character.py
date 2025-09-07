@@ -24,5 +24,5 @@ class Character(Base):
 	)
 
 	__table_args__ = (
-		CheckConstraint("name <> ''"),
+		CheckConstraint("length(trim(name, ' \n\t\r\b\v\f')) > 0"),
 	)

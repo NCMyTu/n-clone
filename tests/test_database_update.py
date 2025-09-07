@@ -3,6 +3,7 @@ from src import DatabaseStatus
 from .utils import _sample_doujinshi
 import random
 
+# TODO: get rid of all update_count calls
 
 @pytest.mark.parametrize("add_method_name, insert_method_name, properti", [ # "property" is reserved...
 	("add_parody_to_doujinshi", "insert_parody", "parodies"),
@@ -173,7 +174,8 @@ def test_get_count_of_items_in_category(dbm, item_type, update_count_method, use
 		assert dbm.insert_doujinshi(doujinshi, False) == DatabaseStatus.OK
 
 	if use_bulk_update:
-		dbm.update_count_of_all()
+		# dbm.update_count_of_all()
+		pass
 	else:
 		getattr(dbm, update_count_method)()
 
@@ -225,7 +227,7 @@ def test_get_count_of_items_when_getting_and_removing_doujinshi(dbm):
 
 		dbm.insert_doujinshi(doujinshi, False)
 
-	dbm.update_count_of_all()
+	# dbm.update_count_of_all()
 
 	# Verify counts after insertion
 	for i in range(n_doujinshis):
@@ -249,7 +251,7 @@ def test_get_count_of_items_when_getting_and_removing_doujinshi(dbm):
 			return_status = dbm.remove_doujinshi(i)
 			assert return_status == DatabaseStatus.OK
 
-	dbm.update_count_of_all()
+	# dbm.update_count_of_all()
 
 	# Verify again
 	for i in range(n_doujinshis_to_remove, n_doujinshis):

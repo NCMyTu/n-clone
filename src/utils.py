@@ -59,6 +59,9 @@ def validate_doujinshi(doujinshi, user_prompt=True):
 			if not value:
 				warnings.append(f"{attr} is empty.")
 			else:
+				if len(value) != len(set(value)):
+					errors.append(f"{attr} has duplicate elements.")
+
 				for v in value:
 					if isinstance(v, str) and v != v.strip():
 						warnings.append(f"{attr}: {v!r} has leading/trailing spaces.")

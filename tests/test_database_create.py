@@ -3,29 +3,19 @@ from pathlib import Path
 from src import DatabaseStatus
 
 
-INVALID_VALUES = [
+@pytest.mark.parametrize("invalid_field",[
+	"id",
+	"full_name", "full_name_original", "pretty_name", "pretty_name_original",
+	"path", "note"
+])
+@pytest.mark.parametrize("invalid_value",[
 	None,
-	"", " \n\t  ",
+	"", " ", " \n\t  ",
 	[], (), set(), {},
 	1.23, True, object(),
-]
-
-
-@pytest.mark.parametrize("invalid_value", INVALID_VALUES + ["123"])
-def test_insert_invalid_id(dbm, sample_doujinshi, invalid_value):
-	sample_doujinshi["id"] = invalid_value
-	assert dbm.insert_doujinshi(sample_doujinshi, False) != DatabaseStatus.OK
-
-
-@pytest.mark.parametrize("invalid_value", INVALID_VALUES)
-def test_insert_invalid_full_name(dbm, sample_doujinshi, invalid_value):
-	sample_doujinshi["full_name"] = invalid_value
-	assert dbm.insert_doujinshi(sample_doujinshi, False) != DatabaseStatus.OK
-
-
-@pytest.mark.parametrize("invalid_value", INVALID_VALUES)
-def test_insert_invalid_path(dbm, sample_doujinshi, invalid_value):
-	sample_doujinshi["path"] = invalid_value
+])
+def test_insert_doujinshi_invalid_field(dbm, sample_doujinshi, invalid_field, invalid_value):
+	sample_doujinshi[invalid_field] = invalid_value
 	assert dbm.insert_doujinshi(sample_doujinshi, False) != DatabaseStatus.OK
 
 
@@ -73,10 +63,11 @@ def test_insert_item(dbm, insert_method_name):
 	assert method("NEW_VALUE") == DatabaseStatus.OK
 	assert method("new value again") == DatabaseStatus.OK
 	assert method("パロディ") == DatabaseStatus.OK
-	assert method("with 'apostrophe ") == DatabaseStatus.OK
+	assert method("with \"apostrophe' ") == DatabaseStatus.OK
 
 	assert method("NEW_VALUE") == DatabaseStatus.NON_FATAL_ITEM_DUPLICATE
 	assert method("new_value    ") == DatabaseStatus.NON_FATAL_ITEM_DUPLICATE
+	assert method("new         value          again") == DatabaseStatus.NON_FATAL_ITEM_DUPLICATE
 	assert method("DROP TABLE artist;") == DatabaseStatus.OK
 
 	assert method("") == DatabaseStatus.FATAL
@@ -91,3 +82,6 @@ def test_insert_item(dbm, insert_method_name):
 	assert method(()) == DatabaseStatus.FATAL
 	assert method(b"bytes") == DatabaseStatus.FATAL
 	assert method(bytearray(b"data")) == DatabaseStatus.FATAL
+
+
+# TODO: check count of items

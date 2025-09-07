@@ -285,11 +285,12 @@ class DatabaseManager:
 			if model:
 				self.logger.item_duplicate(DatabaseStatus.NON_FATAL_ITEM_DUPLICATE, model, name)
 			else:
-				model = Model(name=name)
+				model = Model(name=name, count=0)
 				session.add(model)
 				self.logger.item_inserted(DatabaseStatus.OK, model, name)
 
 			getattr(doujinshi_model, relation_name).append(model)
+			model.count += 1
 			self.logger.doujinshi_item_linked(DatabaseStatus.OK, model, name, doujinshi_model.id)
 
 
@@ -377,11 +378,19 @@ class DatabaseManager:
 				self.logger.item_inserted(DatabaseStatus.OK, Doujinshi, data.id, 2)
 				return DatabaseStatus.OK
 			except IntegrityError as e:
-				if "path" in str(e):
+				# utterly dirty quick fix
+				if "UNIQUE constraint failed: doujinshi.path" in str(e):
 					self.logger.path_duplicate(DatabaseStatus.NON_FATAL_ITEM_DUPLICATE, 2)
 					return DatabaseStatus.NON_FATAL_ITEM_DUPLICATE
-				self.logger.item_duplicate(DatabaseStatus.NON_FATAL_ITEM_DUPLICATE, Doujinshi, data.id, 2)
-				return DatabaseStatus.NON_FATAL_ITEM_DUPLICATE
+				# TODO: give this a different status and log msg
+				elif "CHECK constraint failed: length(trim(" in str(e):
+					self.logger.path_duplicate(DatabaseStatus.NON_FATAL_ITEM_DUPLICATE, 2)
+					return DatabaseStatus.NON_FATAL_ITEM_DUPLICATE
+				elif "UNIQUE constraint failed:" in str(e):
+					self.logger.item_duplicate(DatabaseStatus.NON_FATAL_ITEM_DUPLICATE, Doujinshi, data.id, 2)
+					return DatabaseStatus.NON_FATAL_ITEM_DUPLICATE
+				else:
+					raise e
 			except Exception as e:
 				self.logger.exception(DatabaseStatus.FATAL, e, 2)
 				return DatabaseStatus.FATAL

@@ -209,7 +209,8 @@ Get the number of `doujinshi` associated with each `language`.
 
 ## CREATE methods
 __insert_parody(*name*)__\
-Insert a `parody` into the database.
+Insert a `parody` into the database.\
+__name__ is automatically stripped of redundant whitespace and converted to lowercase.
 - __Parameters:__
   - __name : *str*__\
     Name of the `parody` to insert.
@@ -221,7 +222,8 @@ Insert a `parody` into the database.
     - __*DatabaseStatus.FATAL*__ - other errors.
 
 __insert_character(*name*)__\
-Insert a `character` into the database.
+Insert a `character` into the database.\
+__name__ is automatically stripped of redundant whitespace and converted to lowercase.
 - __Parameters:__
   - __name : *str*__\
     Name of the `character` to insert.
@@ -233,7 +235,8 @@ Insert a `character` into the database.
     - __*DatabaseStatus.FATAL*__ - other errors.
 
 __insert_tag(*name*)__\
-Insert a `tag` into the database.
+Insert a `tag` into the database.\
+__name__ is automatically stripped of redundant whitespace and converted to lowercase.
 - __Parameters:__
   - __name : *str*__\
     Name of the `tag` to insert.
@@ -245,7 +248,8 @@ Insert a `tag` into the database.
     - __*DatabaseStatus.FATAL*__ - other errors.
 
 __insert_artist(*name*)__\
-Insert an `artist` into the database.
+Insert an `artist` into the database.\
+__name__ is automatically stripped of redundant whitespace and converted to lowercase.
 - __Parameters:__
   - __name : *str*__\
     Name of the `artist` to insert.
@@ -257,7 +261,8 @@ Insert an `artist` into the database.
     - __*DatabaseStatus.FATAL*__ - other errors.
 
 __insert_group(*name*)__\
-Insert a `group` into the database.
+Insert a `group` into the database.\
+__name__ is automatically stripped of redundant whitespace and converted to lowercase.
 - __Parameters:__
   - __name : *str*__\
     Name of the `group` to insert.
@@ -269,7 +274,8 @@ Insert a `group` into the database.
     - __*DatabaseStatus.FATAL*__ - other errors.
 
 __insert_language(*name*)__\
-Insert a `language` into the database.
+Insert a `language` into the database.\
+__name__ is automatically stripped of redundant whitespace and converted to lowercase.
 - __Parameters:__
   - __name : *str*__\
     Name of the `language` to insert.

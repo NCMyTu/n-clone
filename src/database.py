@@ -120,6 +120,12 @@ class DatabaseManager:
 		self.insert_language("chinese")
 		return DatabaseStatus.OK
 
+	# TODO: add to docs
+	def disable_logger(self):
+		self.logger.disable()
+	def enable_logger(self):
+		self.logger.enable()
+
 
 	def _idx_components(self):
 		"""Return index definitions.
@@ -220,7 +226,10 @@ class DatabaseManager:
 				session.add(new_item)
 				session.commit()
 
-				self.logger.item_inserted(DatabaseStatus.OK, model, name)
+				self.logger.success(
+					msg=f"[{model.__tablename__}] inserted new value: {name!r}.",
+					stacklevel=1
+				)
 				return DatabaseStatus.OK
 			except IntegrityError as e:
 				self.logger.item_duplicate(DatabaseStatus.NON_FATAL_ITEM_DUPLICATE, model, name)
@@ -380,14 +389,16 @@ class DatabaseManager:
 			except IntegrityError as e:
 				# utterly dirty quick fix
 				if "UNIQUE constraint failed: doujinshi.path" in str(e):
-					self.logger.path_duplicate(DatabaseStatus.NON_FATAL_ITEM_DUPLICATE, 2)
+					self.logger.log_integrity_error(DatabaseStatus.NON_FATAL_ITEM_DUPLICATE, e, 2)
 					return DatabaseStatus.NON_FATAL_ITEM_DUPLICATE
 				# TODO: give this a different status and log msg
 				elif "CHECK constraint failed: length(trim(" in str(e):
-					self.logger.path_duplicate(DatabaseStatus.NON_FATAL_ITEM_DUPLICATE, 2)
+					self.logger.log_integrity_error(DatabaseStatus.NON_FATAL_ITEM_DUPLICATE, e, 2)
+					print(str(e))
 					return DatabaseStatus.NON_FATAL_ITEM_DUPLICATE
 				elif "UNIQUE constraint failed:" in str(e):
-					self.logger.item_duplicate(DatabaseStatus.NON_FATAL_ITEM_DUPLICATE, Doujinshi, data.id, 2)
+					self.logger.log_integrity_error(DatabaseStatus.NON_FATAL_ITEM_DUPLICATE, e, 2)
+					print(str(e))
 					return DatabaseStatus.NON_FATAL_ITEM_DUPLICATE
 				else:
 					raise e

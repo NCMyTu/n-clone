@@ -25,23 +25,24 @@ def sample_doujinshi():
 def print_doujinshi(doujinshi):
 	print("-" * 25)
 	for k, v in doujinshi.items():
-		print(f"   {k}: {v}")
+		print(f"   {k}: {v!r}")
+
 	print("-" * 25)
 
 
 if __name__ == "__main__":
 	dbm = DatabaseManager(url="sqlite:///:memory:", log_path="db.log", echo=False)
 
-	dbm.create_database()
 	# Optionally disable logging to avoid cluttering the output.
-	# dbm.logger.disable()
-
+	dbm.disable_logger()
+	dbm.create_database()
+	
 	doujinshi = sample_doujinshi() # or load from json
 
 	# ------ Insert a doujinshi ------
 	dbm.insert_doujinshi(doujinshi)
 
-	status, retrieved = dbm.get_doujinshi(doujinshi["id"])
+	retrieved = dbm.get_doujinshi(doujinshi["id"])
 	print("After insert:")
 	print_doujinshi(retrieved)
 
@@ -55,7 +56,7 @@ if __name__ == "__main__":
 	# ------ Update counts ------
 	# dbm.update_count_of_all()
 
-	status, retrieved = dbm.get_doujinshi(doujinshi["id"])
+	retrieved = dbm.get_doujinshi(doujinshi["id"])
 	print("After updating counts:")
 	print_doujinshi(retrieved)
 
@@ -87,7 +88,7 @@ if __name__ == "__main__":
 	# Again, remember to update count
 	dbm.update_count_of_all()
 
-	status, retrieved = dbm.get_doujinshi(d_id)
+	retrieved = dbm.get_doujinshi(d_id)
 	print("After updates and removals:")
 	print_doujinshi(retrieved)
 

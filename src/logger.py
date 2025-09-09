@@ -1,5 +1,5 @@
 import logging
-
+from logging.handlers import RotatingFileHandler
 from .database_status import DatabaseStatus
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 import json
@@ -18,17 +18,18 @@ class JsonFormatter(logging.Formatter):
 
 
 	def format(self, record):
-		log_record = {
-			"function": record.funcName,
-			"message": record.getMessage()
-		}
-
+		log_record = {}
+		
+		if self.include_level:
+			log_record["level"] = record.levelname
 		if self.include_logger:
 			log_record["logger"] = record.name
 		if self.include_time:
 			log_record["time"] = self.formatTime(record, datefmt="UTC %Y-%m-%d %H:%M:%S")
-		if self.include_level:
-			log_record["level"] = record.levelname
+
+		log_record["func"] = record.funcName,
+		log_record["msg"] = record.getMessage()
+		
 		if hasattr(record, "extra_data"):
 			log_record.update(record.extra_data)
 
@@ -40,7 +41,12 @@ class DatabaseLogger:
 		self.logger = logging.getLogger(name)
 		self.logger.setLevel(logging.DEBUG)
 
-		self.file_handler = logging.FileHandler(log_path, encoding="utf-8")
+		self.file_handler = RotatingFileHandler(
+			log_path,
+			maxBytes=10*1024*1024, # 50 MB
+			backupCount=50,
+			encoding="utf-8"
+		)
 		self.file_handler.setLevel(logging.DEBUG)
 		self.file_handler.setFormatter(
 			JsonFormatter(include_time=True, include_level=True, include_logger=True, indent=None)
@@ -56,10 +62,28 @@ class DatabaseLogger:
 		self.logger.addHandler(self.stream_handler)
 
 
+	def remove_handlers(self):
+		loggers_to_remove = [logger for logger in self.logger.handlers]
+
+		for logger in loggers_to_remove:
+			self.logger.removeHandler(logger)
+
+
+	def enable(self):
+		self.remove_handlers() # to prevent duplicate handlers
+
+		self.logger.addHandler(self.file_handler)
+		self.logger.addHandler(self.stream_handler)
+
+
+	def disable(self):
+		self.remove_handlers()
+
+
 	def log_event(self, level, status, stacklevel, **kwargs):
-		msg = kwargs.pop("message", "")
+		msg = kwargs.pop("msg", "")
 		data = {
-			"database_status": status.name,
+			"db_status": status.name,
 		}
 		if kwargs:
 			data.update(kwargs)
@@ -73,49 +97,68 @@ class DatabaseLogger:
 
 
 	def success(self, msg, stacklevel, **kwargs):
-		# stacklevel = 0, funcName is the direct caller of this function.
-		# stacklevel = 1, funcName is the caller of the direct caller of this function.
-		# stacklevel = 2, ...
-		self.log_event(logging.INFO, DatabaseStatus.OK, stacklevel+3, message=msg, **kwargs)
+		# stacklevel = 1, funcName is the direct caller of this function.
+		# stacklevel = 2, funcName is the caller of the direct caller of this function.
+		# stacklevel = 3, ...
+		self.log_event(logging.INFO, DatabaseStatus.OK, stacklevel+2, msg=msg, **kwargs)
 
 
-	def exception(self, status, error: Exception, **kwargs):
+	def exception(self, exception, stacklevel, **kwargs):
 		self.log_event(
 			logging.ERROR,
-			status,
-			"exception",
-			error_type=type(error).__name__,
-			error_message=str(error),
+			DatabaseStatus.EXCEPTION,
+			error_type=type(exception).__name__,
+			error_msg=str(exception),
+			stacklevel=stacklevel+2,
+			**kwargs
+		)
+
+
+	def integrity_error(self, error, stacklevel, **kwargs):
+		error_str = str(error)
+		# Example:
+		# (sqlite3.IntegrityError) UNIQUE constraint failed: parody.name
+		# [SQL: INSERT INTO parody (name, count) VALUES (?, ?) RETURNING id]
+		# [parameters: ('a', 0)]
+		# (Background on this error at: https://sqlalche.me/e/20/gkpj)
+		error_message = error_str.split("\n", 1)[0]
+		details = "\n".join(error_str.split("\n")[1:-1]) if "\n" in error_str else None
+
+		self.log_event(
+			logging.INFO,
+			DatabaseStatus.INTEGRITY_ERROR,
+			error_msg=error_message,
+			error_details=details,
+			stacklevel=stacklevel+2,
 			**kwargs,
 		)
 
 
-	def integrity_error(self, status, error: IntegrityError, **kwargs):
-		msg = str(error)
+	def validation_failed(self, stacklevel, **kwargs):
 		self.log_event(
-			logging.ERROR,
-			status,
-			"integrity_error",
-			error_type="IntegrityError",
-			error_message=msg.split("\n", 1)[0],
-			details="\n".join(msg.split("\n")[1:]) if "\n" in msg else None,
+			logging.INFO,
+			DatabaseStatus.VALIDATION_FAILED,
+			msg="doujinshi validation failed",
+			stacklevel=stacklevel+2,
 			**kwargs,
 		)
 
 
-# success(self, status, msg, stacklevel=3):
-# exception(self, status, exception, stacklevel=3):
-# validation_failed(self, status, stacklevel=2):
-# item_not_found(self, status, model, item_name, stacklevel=3):
-# item_duplicate(self, status, model, item_name, stacklevel=3):
-# item_inserted(self, status, model, item_name, stacklevel=3):
-# doujinshi_item_linked(self, status, model, item_name, doujinshi_id, stacklevel=3):
-# doujinshi_item_duplicate(self, status, model, item_name, doujinshi_id, stacklevel=3):
-# item_added_to_doujinshi(self, status, model, item_name, doujinshi_id, stacklevel=3):
-# page_duplicate(self, status, stacklevel=3):
-# page_inserted(self, status, doujinshi_id, stacklevel=3):
-# item_not_in_doujinshi(self, status, model, item_name, doujinshi_id, stacklevel=3):
-# item_removed_from_doujinshi(self, status, model, item_name, doujinshi_id, stacklevel=3):
-# doujinshi_removed(self, status, doujinshi_id, stacklevel=3):
-# path_duplicate(self, status, stacklevel=3):
-# column_updated(self, status, column, value, doujinshi_id, stacklevel=3):
+	def not_found(self, what, stacklevel, **kwargs):
+		self.log_event(
+			logging.INFO,
+			DatabaseStatus.NOT_FOUND,
+			msg=f"{what} not found",
+			stacklevel=stacklevel+2,
+			**kwargs,
+		)
+
+
+	def already_exists(self, what, stacklevel, **kwargs):
+		self.log_event(
+			logging.INFO,
+			DatabaseStatus.ALREADY_EXISTS,
+			msg=f"{what} already exists",
+			stacklevel=stacklevel+2,
+			**kwargs,
+		)

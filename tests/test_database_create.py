@@ -27,11 +27,11 @@ def test_insert_doujinshi_invalid_nullable_field(dbm, sample_doujinshi, invalid_
 
 def test_insert_and_get_doujinshi(dbm, sample_doujinshi):
 	assert dbm.insert_doujinshi(sample_doujinshi, False) == DatabaseStatus.OK
-	assert dbm.insert_doujinshi(sample_doujinshi, False) == DatabaseStatus.NON_FATAL_ITEM_DUPLICATE
+	assert dbm.insert_doujinshi(sample_doujinshi, False) == DatabaseStatus.ALREADY_EXISTS
 
-	return_status, d = dbm.get_doujinshi(sample_doujinshi["id"])
+	d = dbm.get_doujinshi(sample_doujinshi["id"])
 
-	assert return_status == DatabaseStatus.OK
+	assert d
 	assert d["id"] == sample_doujinshi["id"]
 	assert d["full_name"] == sample_doujinshi["full_name"]
 	assert d["pretty_name"] == sample_doujinshi["pretty_name"]
@@ -49,38 +49,37 @@ def test_insert_and_get_doujinshi(dbm, sample_doujinshi):
 
 	assert d["pages"] == sample_doujinshi["pages"], "pages are not in the same order."
 
-	return_status, d = dbm.get_doujinshi(-99999999)
+	d = dbm.get_doujinshi(-99999999)
 
-	assert return_status == DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND
-	assert d is None
+	assert not d
 
 
-@pytest.mark.parametrize("insert_method_name", [
+@pytest.mark.parametrize("insert_function_name", [
 	"insert_parody", "insert_character", "insert_tag",
 	"insert_artist", "insert_group", "insert_language",
 ])
-def test_insert_item(dbm, insert_method_name):
-	insert_function = getattr(dbm, insert_method_name)
+def test_insert_item(dbm, insert_function_name):
+	insert_function = getattr(dbm, insert_function_name)
 
 	assert insert_function("NEW_VALUE") == DatabaseStatus.OK
 	assert insert_function("new value again") == DatabaseStatus.OK
 	assert insert_function("パロディ") == DatabaseStatus.OK
 	assert insert_function("with \"apostrophe' ") == DatabaseStatus.OK
 
-	assert insert_function("NEW_VALUE") == DatabaseStatus.NON_FATAL_ITEM_DUPLICATE
-	assert insert_function("new_value    ") == DatabaseStatus.NON_FATAL_ITEM_DUPLICATE
-	assert insert_function("new      value     again") == DatabaseStatus.NON_FATAL_ITEM_DUPLICATE
+	assert insert_function("NEW_VALUE") == DatabaseStatus.ALREADY_EXISTS
+	assert insert_function("new_value    ") == DatabaseStatus.ALREADY_EXISTS
+	assert insert_function("new      value     again") == DatabaseStatus.ALREADY_EXISTS
 	assert insert_function("DROP TABLE artist;") == DatabaseStatus.OK
 
-	assert insert_function("") == DatabaseStatus.FATAL
-	assert insert_function(" ") == DatabaseStatus.FATAL
-	assert insert_function(" \n\t ") == DatabaseStatus.FATAL
-	assert insert_function(None) == DatabaseStatus.FATAL
-	assert insert_function(123) == DatabaseStatus.FATAL
-	assert insert_function(3.14159) == DatabaseStatus.FATAL
-	assert insert_function(True) == DatabaseStatus.FATAL
-	assert insert_function([]) == DatabaseStatus.FATAL
-	assert insert_function({}) == DatabaseStatus.FATAL
-	assert insert_function(()) == DatabaseStatus.FATAL
-	assert insert_function(b"bytes") == DatabaseStatus.FATAL
-	assert insert_function(bytearray(b"data")) == DatabaseStatus.FATAL
+	assert insert_function("") == DatabaseStatus.EXCEPTION
+	assert insert_function(" ") == DatabaseStatus.EXCEPTION
+	assert insert_function(" \n\t ") == DatabaseStatus.EXCEPTION
+	assert insert_function(None) == DatabaseStatus.EXCEPTION
+	assert insert_function(123) == DatabaseStatus.EXCEPTION
+	assert insert_function(3.14159) == DatabaseStatus.EXCEPTION
+	assert insert_function(True) == DatabaseStatus.EXCEPTION
+	assert insert_function([]) == DatabaseStatus.EXCEPTION
+	assert insert_function({}) == DatabaseStatus.EXCEPTION
+	assert insert_function(()) == DatabaseStatus.EXCEPTION
+	assert insert_function(b"bytes") == DatabaseStatus.EXCEPTION
+	assert insert_function(bytearray(b"data")) == DatabaseStatus.EXCEPTION

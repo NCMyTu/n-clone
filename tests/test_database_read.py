@@ -53,10 +53,10 @@ def test_get_doujinshi_in_page_valid_page_number(dbm, n_doujinshis, page_size, u
 	retrieved_doujinshis = []
 	for page_no in range(1, math.ceil(n_doujinshis / page_size) + 1):
 		if use_cache:
-			return_status, doujinshi_batch = dbm.get_doujinshi_in_page(page_size, page_no, n_doujinshis)
+			doujinshi_batch = dbm.get_doujinshi_in_page(page_size, page_no, n_doujinshis)
 		else:
-			return_status, doujinshi_batch = dbm.get_doujinshi_in_page(page_size, page_no)
-		assert return_status == DatabaseStatus.OK
+			doujinshi_batch = dbm.get_doujinshi_in_page(page_size, page_no)
+		assert doujinshi_batch
 		retrieved_doujinshis.append(doujinshi_batch)
 
 	for batch in retrieved_doujinshis:
@@ -83,27 +83,26 @@ def test_get_doujinshi_in_page_illegal_page_number(dbm):
 	insert_n_doujinshis_into_db(dbm, n_doujinshis_to_test)
 
 	for illegal_page_number in illegal_page_numbers:
-		return_status, should_be_empty = dbm.get_doujinshi_in_page(page_size, illegal_page_number)
-		assert return_status == DatabaseStatus.OK
+		should_be_empty = dbm.get_doujinshi_in_page(page_size, illegal_page_number)
 		assert should_be_empty == []
 
 
-@pytest.mark.parametrize("n_doujinshi_to_test, expected_n_doujinshi, id_start, id_end",
+@pytest.mark.parametrize("n_doujinshi, expected_n_doujinshi, id_start, id_end",
 [
-	(28, 1, 5, 5),
-	(28, 10, 1, 10),
-	(28, 28, 1, 28),
-	(28, 9, 2, 10),
-	(28, 27, 2, 49),
-	(28, 28, 1, 49),
-	(28, 10, -1, 10),
-	(28, 28, -1, 28),
-	(28, 28, -1, 100),
-	(28, 0, 2, 1),
-	(28, 0, -7, -5),
-	(28, 0, 100, 101)
+	(8, 1, 5, 5),
+	(8, 8, 1, 8),
+	(8, 7, 1, 7),
+	(8, 6, 2, 7),
+	(8, 7, 2, 19),
+	(8, 8, 1, 29),
+	(8, 6, -1, 6),
+	(8, 8, -1, 18),
+	(8, 8, -1, 100),
+	(8, 0, 2, 1),
+	(8, 0, -7, -5),
+	(8, 0, 100, 101)
 ])
-def test_get_doujinshi_in_range(dbm, n_doujinshi_to_test, expected_n_doujinshi, id_start, id_end):
+def test_get_doujinshi_in_range(dbm, n_doujinshi, expected_n_doujinshi, id_start, id_end):
 	to_compare = []
 
 	fields_to_shuflfe = [
@@ -112,24 +111,22 @@ def test_get_doujinshi_in_range(dbm, n_doujinshi_to_test, expected_n_doujinshi, 
 		"pages"
 	]
 
-	for d_id in range(1, n_doujinshi_to_test+1):
+	for d_id in range(1, n_doujinshi+1):
 		doujinshi = _sample_doujinshi(d_id)
 
 		for field in fields_to_shuflfe:
 			random.shuffle(doujinshi[field])
 
 		to_compare.append(doujinshi)
-		return_status = dbm.insert_doujinshi(doujinshi, False)
-		assert return_status == DatabaseStatus.OK
+		assert dbm.insert_doujinshi(doujinshi, False) == DatabaseStatus.OK
 
-	return_status, retrieved_doujinshi = dbm.get_doujinshi_in_range(id_start, id_end)
+	retrieved_doujinshi = dbm.get_doujinshi_in_range(id_start, id_end)
 
-	assert return_status == DatabaseStatus.OK
 	assert len(retrieved_doujinshi) == expected_n_doujinshi
 
 	expected_doujinshi = [
 		d for d in to_compare
-		if d["id"] >= id_start and d["id"] <= (id_end if id_end else n_doujinshi_to_test)
+		if d["id"] >= id_start and d["id"] <= (id_end if id_end else n_doujinshi)
 	]
 	for retrieved, expected in zip(retrieved_doujinshi, expected_doujinshi):
 		for item_name, expected_items in expected.items():

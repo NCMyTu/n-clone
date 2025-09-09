@@ -10,9 +10,11 @@ def extract_all_numbers(s):
 
 
 def is_non_empty_str(s):
-    if not (isinstance(s, str) and s.strip()):
-        return False
-    return True
+	if not (isinstance(s, str)):
+		return False
+	if not s.strip():
+		return False
+	return True
 
 
 def validate_doujinshi(doujinshi, user_prompt=True):
@@ -25,8 +27,6 @@ def validate_doujinshi(doujinshi, user_prompt=True):
 		errors.append(f"id must be an int. Got {doujinshi["id"]!r} instead.")
 	if not is_non_empty_str(doujinshi["full_name"]):
 		errors.append("full_name must be a non-empty string.")
-	if not is_non_empty_str(doujinshi["path"]):
-		errors.append(f"path must be a non-empty string.")
 
 	required_fields = [
 		("pretty_name", False),
@@ -80,7 +80,10 @@ def validate_doujinshi(doujinshi, user_prompt=True):
 			if value != [v.lower() for v in value]:
 				errors.append(f"{attr} has uppercase character.")
 
-	if doujinshi["path"] and doujinshi["path"] != Path(doujinshi["path"]).as_posix():
+	# Put this here to pass the test
+	if not is_non_empty_str(doujinshi["path"]):
+		errors.append(f"path must be a non-empty string.")
+	elif doujinshi["path"] and doujinshi["path"] != Path(doujinshi["path"]).as_posix():
 		warnings.append("path should use POSIX-style separator (no \\)")
 
 	if doujinshi["tags"] and "textless" in doujinshi["tags"]:

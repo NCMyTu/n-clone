@@ -20,7 +20,6 @@ import pathlib
 from sqlalchemy.pool import StaticPool
 import math
 
-# TODO: update docs
 
 # Docstring is the same style as sklearn's.
 # https://github.com/scikit-learn/scikit-learn/blob/c5497b7f7/sklearn/neural_network/_rbm.py#L274
@@ -85,6 +84,7 @@ class DatabaseManager:
 		This is specific to SQLite.
 		"""
 		# NOTE: omit this function from user docs.
+
 		# the sqlite3 driver will not set PRAGMA foreign_keys
 		# if autocommit=False; set to True temporarily
 		ac = dbapi_connection.autocommit
@@ -101,18 +101,18 @@ class DatabaseManager:
 
 
 	def create_database(self):
-		"""Initialize the database schema and insert default values.
+		"""Initialize the database schema and insert default languages.
 
 		Creates all tables defined in the SQLAlchemy `Base` metadata and
-		inserts a set of default languages ("english", "japanese", "textless", "chinese")
-		into the database.
+		inserts a set of default languages ("english", "japanese", "textless", "chinese").
 
 		Does nothing if a schema already exists.
 
 		Returns
 		-------
-		status : DatabaseStatus.OK
-			Indicates the database is successfully created.
+		status : DatabaseStatus
+			Status of the operation:
+				DatabaseStatus.OK - database created.
 		"""
 		Base.metadata.create_all(self.engine)
 		self.insert_language("english")
@@ -123,7 +123,6 @@ class DatabaseManager:
 		return DatabaseStatus.OK
 
 
-	# TODO: add to docs
 	def disable_logger(self):
 		self.logger.disable()
 	def enable_logger(self):
@@ -136,7 +135,7 @@ class DatabaseManager:
 		Each entry is a tuple of (index_name, on_clause) for the many-to-many
 		tables.
 
-		WARNING: this is hardcoded, so update if underlying models change.
+		WARNING: this is hardcoded, so update if the underlying models change.
 		"""
 		return [
 			# (index name, ON clause)
@@ -150,12 +149,13 @@ class DatabaseManager:
 
 
 	def create_index(self):
-		"""Create all extra indices listed in `_idx_components`.
+		"""(Re)Create `extra indices` listed in `_idx_components`.
 
 		Returns
 		-------
-		status : DatabaseStatus.OK
-			Indicates indices were successfully created.
+		status : DatabaseStatus
+			Status of the operation:
+				DatabaseStatus.OK - extra indices created.
 		"""
 		with self.session() as session:
 			for idx_name, on_clause in self._idx_components():
@@ -167,12 +167,13 @@ class DatabaseManager:
 
 
 	def drop_index(self):
-		"""Drop all extra indices listed in `_idx_components`..
+		"""Drop `all extra` indices listed in `_idx_components`..
 
 		Returns
 		-------
-		status : DatabaseStatus.OK
-			Indicates indices were successfully dropped.
+		status : DatabaseStatus
+			Status of the operation:
+				DatabaseStatus.OK - extra indices dropped.
 		"""
 		with self.session() as session:
 			for idx_name, _ in self._idx_components():
@@ -197,7 +198,6 @@ class DatabaseManager:
 		"""Execute the SQLite command `VACUUM` to reduce storage size.
 
 		Use this after bulk inserts or creating indices.
-
 		Other databases may have a different command for this operation.
 		"""
 		with self.session() as session:
@@ -219,7 +219,7 @@ class DatabaseManager:
 
 		Parameters
 		----------
-		model : `Parody`, `Character`, `Tag`, `Artist`, `Group` or `Language`
+		model : Parody|Character|Tag|Artist|Group|Language
 			Type of the item being inserted.
 
 		name : str
@@ -230,8 +230,8 @@ class DatabaseManager:
 		status : DatabaseStatus
 			Status of the operation:
 				DatabaseStatus.OK - item inserted.
-				DatabaseStatus.NON_FATAL_ITEM_DUPLICATE - item already exists.
-				DatabaseStatus.FATAL - other errors.
+				DatabaseStatus.ALREADY_EXISTS - item already exists.
+				DatabaseStatus.EXCEPTION - other errors.
 		"""
 		with self.session() as session:
 			tbl_name = model.__tablename__
@@ -275,11 +275,11 @@ class DatabaseManager:
 
 
 	def _add_and_link_item(self, session, doujinshi_model, relation_name, Model, item_names):
-		"""Insert `items` into the database (if they don't exist) and link them to a `doujinshi`.
+		"""Insert a list of `items` into the database (except Page) (if not exist) and link them to a `doujinshi`.
 
 		Notes
 		-----
-		This function does not commit the change, the caller is responsible for this.
+		This function does NOT commit the change, the caller is responsible for this.
 
 		Parameters
 		----------
@@ -287,12 +287,12 @@ class DatabaseManager:
 			The session handling this function.
 
 		doujinshi_model : Doujinshi
-			`doujinshi` to which `items` will be linked.
+			doujinshi to which items will be linked.
 
-		relation_name : "parodies", "characters", "tags", "artists", "groups" or "languages"
+		relation_name : "parodies"|"characters"|"tags"|"artists"|"groups"|"languages"
 			Name of the list-like relationship of `doujinshi_model`.
 
-		Model : `Parody`, `Character`, `Tag`, `Artist`, `Group` or `Language`
+		Model : Parody|Character|Tag|Artist|Group|Language
 			Model of the items to add.
 
 		item_names : list of str
@@ -325,8 +325,9 @@ class DatabaseManager:
 		Performs these actions in order:
 			validate the doujinshi,
 			check for doujinshi duplicates by ID,
-			add doujinshi and related items if they do not exist,
-			link items to the doujinshi.
+			add doujinshi bare info,
+			call self._add_and_link_item(),
+			link pages to the doujinshi.
 
 		Parameters
 		----------
@@ -336,23 +337,25 @@ class DatabaseManager:
 					'id', 'path', 'note',
 					'full_name', 'full_name_original',
 					'pretty_name', 'pretty_name_original',
-				List-like:
+				List of str:
 					'parodies', 'characters', 'tags',
 					'artists', 'groups', 'languages',
-					'pages'.
+					'pages' (ordered).
 
 		user_prompt : bool, default=True
 			Whether to prompt the user during doujinshi validation.
-			If False, it will not alert user about empty list-like attributes or warnings.
+			If all doujinshi fields are already filled, no prompt is shown.
+			If False, validation will not alert user about empty list-like fields or warnings.
 
 		Returns
 		-------
 		status : DatabaseStatus
 			Status of the operation:
 				DatabaseStatus.OK - insertion succeeded.
-				DatabaseStatus.NON_FATAL_VALIDATION_FAILED - validation failed.
-				DatabaseStatus.NON_FATAL_ITEM_DUPLICATE - doujinshi (or its path) exists.
-				DatabaseStatus.FATAL - other errors.
+				DatabaseStatus.VALIDATION_FAILED - validation failed.
+				DatabaseStatus.ALREADY_EXISTS - doujinshi ID already exists.
+				DatabaseStatus.INTEGRITY_ERROR - integrity errors (likely "path" uniqueness violation).
+				DatabaseStatus.EXCEPTION - other errors.
 		"""
 		if not validate_doujinshi(doujinshi, user_prompt=user_prompt):
 			self.logger.validation_failed(stacklevel=1)
@@ -367,7 +370,7 @@ class DatabaseManager:
 				return DatabaseStatus.ALREADY_EXISTS
 
 			try:
-				# Add info to doujinshi table
+				# Add info to doujinshi table.
 				d = Doujinshi(
 					id=d_data.id,
 					full_name=d_data.full_name, full_name_original=d_data.full_name_original,
@@ -377,7 +380,7 @@ class DatabaseManager:
 				)
 				session.add(d)
 
-				# Add and link item types
+				# Add and link item by types.
 				relations = [
 					("parodies", Parody, d_data.parodies),
 					("characters", Character, d_data.characters),
@@ -389,8 +392,8 @@ class DatabaseManager:
 				for rel_name, model, values in relations:
 					self._add_and_link_item(session, d, rel_name, model, values)
 
-				# Add pages
-				# validate_doujinshi() should catch duplicate filename
+				# Add pages.
+				# validate_doujinshi() should catch duplicate filename.
 				for i, filename in enumerate(d_data.pages, start=1):
 					d.pages.append(Page(filename=filename, order_number=i))
 
@@ -409,7 +412,9 @@ class DatabaseManager:
 
 
 	def _add_item_to_doujinshi(self, doujinshi_id, model, relation_name, name):
-		"""Add a single `item` to an existing `Doujinshi`.
+		"""Add an existing `item` to an existing `Doujinshi` by name.
+
+		The "existing" part is intentional to avoid inserting similar/typo'ed item.
 
 		Use public methods whenever possible.
 
@@ -418,10 +423,10 @@ class DatabaseManager:
 		doujinshi_id : int
 			ID of the doujinshi to which the item should be added.
 
-		model : `Parody`, `Character`, `Tag`, `Artist`, `Group` or `Language`
+		model : Parody|Character|Tag|Artist|Group|Language
 			The model of the items to add.
 
-		relation_name : "parodies", "characters", "tags", "artists", "groups" or "languages"
+		relation_name : "parodies"|"characters"|"tags"|"artists"|"groups"|"languages"
 			Name of the list-like relationship of `doujinshi_model`.
 
 		name : str
@@ -432,12 +437,14 @@ class DatabaseManager:
 		status: DatabaseStatus
 			Status of the operation:
 				DatabaseStatus.OK - item addeded.
-				DatabaseStatus.NON_FATAL_ITEM_DUPLICATE - item already linked to doujinshi.
-				DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND - doujinshi or item not found.
-				DatabaseStatus.FATAL - other errors.
+				DatabaseStatus.ALREADY_EXISTS - item already linked to doujinshi.
+				DatabaseStatus.NOT_FOUND - doujinshi or item not found.
+				DatabaseStatus.EXCEPTION - other errors.
 		"""
 		with self.session() as session:
-			# The number of item is (expected to be) way smaller than The number of doujinshi.
+			# The number of item is (expected to be) way smaller than The number of doujinshi,
+			# so check item duplication first?
+			# TODO: benchmark performance with model.name indices.
 			statement = select(model).where(model.name == name)
 			model_to_add = session.scalar(statement)
 			model_str = f"{model.__tablename__} {name!r}"
@@ -486,9 +493,9 @@ class DatabaseManager:
 		DatabaseStatus
 			Status of the operation:
 				DatabaseStatus.OK - pages updated.
-				DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND - doujinshi not found.
-				DatabaseStatus.NON_FATAL_ITEM_DUPLICATE - duplicate page filenames detected.
-				DatabaseStatus.FATAL - other errors.
+				DatabaseStatus.NOT_FOUND - doujinshi not found.
+				DatabaseStatus.INTEGRITY_ERROR - integrity error (likely duplicate filenames).
+				DatabaseStatus.EXCEPTION - other errors.
 		"""
 		with self.session() as session:
 			statement = select(Doujinshi).where(Doujinshi.id == doujinshi_id)
@@ -559,10 +566,10 @@ class DatabaseManager:
 		doujinshi_id : int
 			ID of the doujinshi from which the item should be removed.
 
-		model : `Parody`, `Character`, `Tag`, `Artist`, `Group` or `Language`
-			The model of the items to remove.
+		model : Parody|Character|Tag|Artist|Group|Language
+			Model of the item to remove.
 
-		relation_name : "parodies", "characters", "tags", "artists", "groups" or "languages"
+		relation_name : "parodies"|"characters"|"tags"|"artists"|"groups"|"languages"
 			Name of the list-like relationship of `doujinshi_model`.
 
 		name : str
@@ -573,8 +580,8 @@ class DatabaseManager:
 		DatabaseStatus
 			Status of the operation:
 				DatabaseStatus.OK - item successfully removed.
-				DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND - doujinshi or item not found, or item not associated with doujinshi.
-				DatabaseStatus.FATAL - other errors.
+				DatabaseStatus.NOT_FOUND - doujinshi or item not found, or item not associated with doujinshi.
+				DatabaseStatus.EXCEPTION - other errors.
 		"""
 		with self.session() as session:
 			statement = select(model).where(model.name == name)
@@ -632,7 +639,10 @@ class DatabaseManager:
 
 
 	def remove_doujinshi(self, doujinshi_id):
-		"""Remove a `doujinshi` (and its related items) from the database by its ID.
+		"""Remove a `doujinshi` from the database by ID.
+
+		All of its related `items` (parodies, characters, tags,
+		artists, groups, languages, pages) will be removed as well.
 
 		Parameters
 		----------
@@ -644,8 +654,8 @@ class DatabaseManager:
 		DatabaseStatus
 			Status of the operation:
 				DatabaseStatus.OK - doujinshi removed.
-				DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND - doujinshi not found.
-				DatabaseStatus.FATAL - other errors.
+				DatabaseStatus.NOT_FOUND - doujinshi not found.
+				DatabaseStatus.EXCEPTION - other errors.
 		"""
 		with self.session() as session:
 			statement = select(Doujinshi).where(Doujinshi.id == doujinshi_id)
@@ -685,9 +695,9 @@ class DatabaseManager:
 		DatabaseStatus
 			Status of the operation:
 				DatabaseStatus.OK - update succeeded.
-				DatabaseStatus.NON_FATAL_ITEM_DUPLICATE - "path" column duplicate.
-				DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND - doujinshi not found.
-				DatabaseStatus.FATAL - other errors.
+				DatabaseStatus.INTEGRITY_ERROR - integrity errors (likely "path" uniqueness violation).
+				DatabaseStatus.NOT_FOUND - doujinshi not found.
+				DatabaseStatus.EXCEPTION - other errors.
 		"""
 		with self.session() as session:
 			statement = select(Doujinshi).where(Doujinshi.id == doujinshi_id)
@@ -737,7 +747,7 @@ class DatabaseManager:
 
 		Parameters
 		----------
-		model : `Parody`, `Character`, `Tag`, `Artist`, `Group` or `Language`
+		model : Parody|Character|Tag|Artist|Group|Language
 			Mdel to retrieve counts.
 
 		names : list of str
@@ -748,10 +758,6 @@ class DatabaseManager:
 
 		Returns
 		-------
-		status : DatabaseStatus
-			DatabaseStatus.OK - count retrieved.
-			DatabaseStatus.FATAL - error occured.
-
 		count_dict : dict
 			Dictionary mapping item names to their counts. Items not found will have count 0.
 		"""
@@ -759,7 +765,6 @@ class DatabaseManager:
 			return {}
 
 		statement = select(model.name, model.count).where(model.name.in_(names))
-
 
 		if session:
 			count_dict = dict(session.execute(statement).all())
@@ -793,7 +798,11 @@ class DatabaseManager:
 
 	def get_doujinshi(self, doujinshi_id):
 		"""
-		Retrieve a doujinshi and its data by ID.
+		Retrieve a full-data doujinshi by ID.
+
+		Notes
+		-----
+		Item-count dict fields are not guaranteed to be sorted.
 
 		Parameters
 		----------
@@ -802,25 +811,14 @@ class DatabaseManager:
 
 		Returns
 		-------
-		status : DatabaseStatus
-			DatabaseStatus.OK - doujinshi retrieved.
-			DatabaseStatus.NON_FATAL_ITEM_NOT_FOUND - doujinshi not found.
-			DatabaseStatus.FATAL - other errors.
-
 		doujinshi : dict or None
-			A dictionary if found, containing these fields:
+			A dict if found, otherwise None, containing these fields:
 				Single-valued:
-					'id',
-					'path',
-					'note',
+					'id', 'path', 'note',
 					'full_name', 'full_name_original',
 					'pretty_name', 'pretty_name_original',
-				List-like:
-					'parodies', 'characters', 'tags',
-					'artists', 'groups', 'languages',
-					'pages'.
-			Otherwise None.
-			Note: doujinshi's item fields (except pages) may be in an arbitrary order.
+				`Item`-count dict: 'parodies', 'characters', 'tags', 'artists', 'groups', 'languages',
+				List-like: 'pages'.
 		"""
 		with self.session() as session:
 			# No try/except needed, route handler should catch non-int doujinshi_id values.
@@ -857,7 +855,7 @@ class DatabaseManager:
 
 
 	def get_doujinshi_in_page(self, page_size, page_number, n_doujinshi=None):
-		"""Retrieve a paginated list of (latest ID) doujinshi.
+		"""Retrieve a paginated list of latest (by ID) partial-data doujinshi.
 
 		Parameters
 		----------
@@ -868,13 +866,11 @@ class DatabaseManager:
 			Page number to retrieve (1-based).
 
 		n_doujinshi : int, default=None
-			Total number of doujinshi. If not None, this value is used to optimize retrieval of later pages.
+			Total number of doujinshi.
+			If not None, this value is used to optimize retrieval speed of later pages.
 
 		Returns
 		-------
-			status : DatabaseStatus
-				DatabaseStatus.OK - retrieval succeeded.
-				DatabaseStatus.FATAL - error occured.
 			doujinshi_list : list of dict
 				Each dict contains: 'id', 'full_name', 'path' and 'cover_filename'.
 		"""
@@ -942,6 +938,12 @@ class DatabaseManager:
 	def get_doujinshi_in_range(self, id_start=1, id_end=None):
 		"""Retrieve all doujinshi within an ID range.
 
+		Use this when exporting data.
+
+		Notes
+		-----
+		Doujinshi's list-like fields (except pages) may be in an arbitrary order.
+
 		Parameters
 		----------
 		id_start : int, default=1
@@ -952,21 +954,8 @@ class DatabaseManager:
 
 		Returns
 		-------
-		status : DatabaseStatus
-			DatabaseStatus.OK - retrieval succeeded.
-			DatabaseStatus.FATAL - error occured.
-
 		doujinshi_list : list of dict
-			Each dict contains these fields:
-				Single-valued:
-					'id', 'path', 'note'
-					'full_name', 'full_name_original',
-					'pretty_name', 'pretty_name_original',
-				List-valued:
-					'parodies', 'characters', 'tags',
-					'artists', 'groups', 'languages'
-					'pages'
-			Note: doujinshi's item fields (except pages) may be in an arbitrary order.
+			Each dict is the same as one returned by get_doujinshi().
 		"""
 		# TODO: get_doujinshi explain query to check if it uses index efficiently.
 		with self.session() as session:
@@ -1007,7 +996,7 @@ class DatabaseManager:
 
 		Parameters
 		----------
-		model : `Parody`, `Character`, `Tag`, `Artist`, `Group` or `Language`
+		model : Parody|Character|Tag|Artist|Group|Language
 			Model whose 'count' column will be updated.
 
 		model_id_column : Column
@@ -1037,7 +1026,7 @@ class DatabaseManager:
 
 		Parameters
 		----------
-		model : `Parody`, `Character`, `Tag`, `Artist`, `Group` or `Language`
+		model : Parody|Character|Tag|Artist|Group|Language
 			Model whose `count` column should be updated.
 
 		model_id_column : Column
@@ -1053,7 +1042,7 @@ class DatabaseManager:
 		-------
 		status: DatabaseStatus
 			DatabaseStatus.OK - count updated.
-			DatabaseStatus.FATAL - error occurred.
+			DatabaseStatus.EXCEPTION - error occurred.
 		"""
 		if session:
 			self._update_count(model, model_id_column, d_id_column, session)
@@ -1095,7 +1084,7 @@ class DatabaseManager:
 		-------
 		status : DatabaseStatus
 			DatabaseStatus.OK - all counts updated.
-			DatabaseStatus.FATAL - error occurred.
+			DatabaseStatus.EXCEPTION - error occurred.
 		"""
 		params = [
 			(Parody, d_parody.c.parody_id, d_parody.c.doujinshi_id),

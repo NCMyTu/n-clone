@@ -1,7 +1,6 @@
 import logging
 from logging.handlers import RotatingFileHandler
 from .database_status import DatabaseStatus
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 import json
 import time
 

@@ -1,5 +1,4 @@
 from __future__ import annotations
-import re
 
 from sqlalchemy import event
 from sqlalchemy.orm import DeclarativeBase, validates
@@ -24,7 +23,7 @@ class Base(DeclarativeBase):
 		if not value or not value.strip():
 			raise ValueError(f"{key} can't be blank or whitespace.")
 
-		normalized = re.sub(r"\s+", " ", value.strip())
+		normalized = " ".join(value.strip().split())
 
 		if key == "name":
 			normalized = normalized.lower()

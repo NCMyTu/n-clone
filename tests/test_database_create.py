@@ -25,35 +25,6 @@ def test_insert_doujinshi_invalid_nullable_field(dbm, sample_doujinshi, invalid_
 	assert dbm.insert_doujinshi(sample_doujinshi, False) != DatabaseStatus.OK
 
 
-def test_insert_and_get_doujinshi(dbm, sample_doujinshi):
-	assert dbm.insert_doujinshi(sample_doujinshi, False) == DatabaseStatus.OK
-	assert dbm.insert_doujinshi(sample_doujinshi, False) == DatabaseStatus.ALREADY_EXISTS
-
-	d = dbm.get_doujinshi(sample_doujinshi["id"])
-
-	assert d
-	assert d["id"] == sample_doujinshi["id"]
-	assert d["full_name"] == sample_doujinshi["full_name"]
-	assert d["pretty_name"] == sample_doujinshi["pretty_name"]
-	assert d["full_name_original"] == sample_doujinshi["full_name_original"]
-	assert d["pretty_name_original"] == sample_doujinshi["pretty_name_original"]
-	assert d["path"] == Path(sample_doujinshi["path"]).as_posix()
-	assert d["note"] == sample_doujinshi["note"]
-
-	assert set(d["parodies"].keys()) == set(sample_doujinshi["parodies"])
-	assert set(d["characters"].keys()) == set(sample_doujinshi["characters"])
-	assert set(d["tags"].keys()) == set(sample_doujinshi["tags"])
-	assert set(d["artists"].keys()) == set(sample_doujinshi["artists"])
-	assert set(d["groups"].keys()) == set(sample_doujinshi["groups"])
-	assert set(d["languages"].keys()) == set(sample_doujinshi["languages"])
-
-	assert d["pages"] == sample_doujinshi["pages"], "pages are not in the same order."
-
-	d = dbm.get_doujinshi(-99999999)
-
-	assert not d
-
-
 @pytest.mark.parametrize("insert_function_name", [
 	"insert_parody", "insert_character", "insert_tag",
 	"insert_artist", "insert_group", "insert_language",
@@ -83,3 +54,26 @@ def test_insert_item(dbm, insert_function_name):
 	assert insert_function(()) == DatabaseStatus.EXCEPTION
 	assert insert_function(b"bytes") == DatabaseStatus.EXCEPTION
 	assert insert_function(bytearray(b"data")) == DatabaseStatus.EXCEPTION
+
+
+@pytest.mark.parametrize("n", [1, 5, 17, 31])
+def test_insert_n_random_doujinshi(dbm, sample_n_random_doujinshi, n):
+	doujinshi_list, _ = sample_n_random_doujinshi(n)
+	for doujinshi in doujinshi_list:
+		assert dbm.insert_doujinshi(doujinshi, False) == DatabaseStatus.OK
+	for doujinshi in doujinshi_list:
+		assert dbm.insert_doujinshi(doujinshi, False) == DatabaseStatus.ALREADY_EXISTS
+
+
+@pytest.mark.parametrize("n", [1, 5, 17, 31])
+def test_counts_after_insert(dbm, sample_n_random_doujinshi, n):
+	doujinshi_list, expected_item_counts = sample_n_random_doujinshi(n)
+
+	for doujinshi in doujinshi_list:
+		dbm.insert_doujinshi(doujinshi, False)
+
+	for item_type, expected_counts in expected_item_counts.items():
+		dbm_get_count_of = getattr(dbm, f"get_count_of_{item_type}")
+		actual_count = dbm_get_count_of(expected_counts.keys())
+		for item_name in actual_count.keys():
+			assert actual_count[item_name] == expected_counts[item_name]

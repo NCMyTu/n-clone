@@ -53,11 +53,7 @@ if __name__ == "__main__":
 	doujinshi["characters"] = doujinshi["characters"][1:]
 	dbm.insert_doujinshi(doujinshi)
 
-	# ------ Update counts ------
-	# dbm.update_count_of_all()
-
 	retrieved = dbm.get_doujinshi(doujinshi["id"])
-	print("After updating counts:")
 	print_doujinshi(retrieved)
 
 	# ------ Update doujinshi fields ------

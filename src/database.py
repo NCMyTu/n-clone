@@ -839,6 +839,7 @@ class DatabaseManager:
 			}
 			d_dict["pages"] = [p.filename for p in doujinshi.pages]
 
+			# TODO: check raw SQL (get count by id instead)
 			relationships = {
 				"parodies": (Parody, doujinshi.parodies),
 				"characters": (Character, doujinshi.characters),
@@ -1121,3 +1122,11 @@ class DatabaseManager:
 	# TODO: check if tests include update_count
 	#       add usage examples
 	#       add db schema description
+	# TODO: update count when inserting and deleteing:
+	#       - insert_doujinshi DONE
+	#       - insert_item
+	#       - remove_doujinsh
+	#       - add_item_to_doujinshi (except page)
+	#       - remove_item_from_doujinshi (except page)
+	#       - insert_doujinshi DONE
+	#       - insert_doujinshi DONE

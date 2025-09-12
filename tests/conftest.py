@@ -1,6 +1,6 @@
 from src import DatabaseManager, DatabaseStatus
 import pytest
-from .utils import _sample_doujinshi
+from .utils import _sample_n_random_doujinshi
 from pathlib import Path
 
 
@@ -17,4 +17,11 @@ def dbm():
 
 @pytest.fixture
 def sample_doujinshi():
-	return _sample_doujinshi(1)
+	doujinshi_list, _ = _sample_n_random_doujinshi(1)
+	return doujinshi_list[0]
+
+
+@pytest.fixture
+def sample_n_random_doujinshi():
+	# return doujishi_list and its item_counts
+	return _sample_n_random_doujinshi

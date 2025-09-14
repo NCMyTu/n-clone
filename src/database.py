@@ -100,6 +100,12 @@ class DatabaseManager:
 		# print("foreign_keys is ON.")
 
 
+	def disable_logger(self):
+		self.logger.disable()
+	def enable_logger(self):
+		self.logger.enable()
+
+
 	def create_database(self):
 		"""Initialize the database schema and insert default languages.
 
@@ -121,12 +127,6 @@ class DatabaseManager:
 		self.insert_language("chinese")
 		self.logger.success(msg="database created", stacklevel=1)
 		return DatabaseStatus.OK
-
-
-	def disable_logger(self):
-		self.logger.disable()
-	def enable_logger(self):
-		self.logger.enable()
 
 
 	def _idx_components(self):
@@ -313,7 +313,6 @@ class DatabaseManager:
 				self.logger.success(msg=f"{tbl_name} {name!r} inserted", stacklevel=2)
 
 			getattr(doujinshi_model, relation_name).append(model)
-			model.count += 1
 
 			msg = f"doujinshi #{doujinshi_model.id} <-> {tbl_name} {name!r}"
 			self.logger.success(msg=msg, stacklevel=2)
@@ -713,6 +712,15 @@ class DatabaseManager:
 
 				self.logger.success(f"{doujinshi_str} updated {column_name} {value!r}", stacklevel=2)
 				return DatabaseStatus.OK
+			except ValueError as e:
+				# TODO: update this in doc.
+				if "must be a non-empty string" in str(e):
+					# Refer to logger.DatabaseLogger.log_event
+					msg = f"'{column_name} must be a non-empty string, got {value!r} instead"
+					self.logger.log_event(logging.INFO, DatabaseStatus.INTEGRITY_ERROR, stacklevel=3, msg=msg)
+					return DatabaseStatus.INTEGRITY_ERROR
+				self.logger.exception(e, stacklevel=2, rollback=True)
+				return DatabaseStatus.EXCEPTION
 			except IntegrityError as e:
 				# Only "path" column can trigger this.
 				self.logger.integrity_error(e, stacklevel=2, rollback=True)
@@ -1119,14 +1127,4 @@ class DatabaseManager:
 
 
 	# TODO: implement bulk_insert
-	# TODO: check if tests include update_count
-	#       add usage examples
-	#       add db schema description
-	# TODO: update count when inserting and deleteing:
-	#       - insert_doujinshi DONE
-	#       - insert_item
-	#       - remove_doujinsh
-	#       - add_item_to_doujinshi (except page)
-	#       - remove_item_from_doujinshi (except page)
-	#       - insert_doujinshi DONE
-	#       - insert_doujinshi DONE
+	# TODO: add db schema description

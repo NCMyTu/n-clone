@@ -6,7 +6,12 @@ from pathlib import Path
 
 
 class Base(DeclarativeBase):
-	@validates("full_name", "name", "path")
+	@validates(
+		"full_name", "full_name_original",
+		"pretty_name", "pretty_name_original",
+		"path", "note",
+		"name"
+	)
 	def validate_and_normalize_string(self, key, value):
 		"""Validate and normalize string fields.
 
@@ -20,8 +25,10 @@ class Base(DeclarativeBase):
 		Example:
 			"   New  \t\n  String   " -> "new string"
 		"""
+		if not isinstance(value, str):
+			raise ValueError(f"{key} must be a non-empty string. Got {type(value)} instead.")
 		if not value or not value.strip():
-			raise ValueError(f"{key} can't be blank or whitespace.")
+			raise ValueError(f"{key} must be a non-empty string. Got {type(value)} instead.")
 
 		normalized = " ".join(value.strip().split())
 

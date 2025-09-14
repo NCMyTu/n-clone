@@ -31,8 +31,15 @@ Return this database's internal session.
   - __session : *sqlalchemy.orm.Session*__\
     The internal session associated with this object.
 
+
 __create_database()__\
-Creates database schema defined in the SQLAlchemy `Base` metadata and inserts a set of default languages (**"english"**, **"japanese"**, **"textless"**, **"chinese"**).
+Creates database schema.
+
+Does these things:
+- Create database tables defined in the SQLAlchemy `Base` metadata.
+- Create `extra indices`.
+- Create `triggers`.
+- Inserts a set of default languages (__"english"__, __"japanese"__, __"textless"__, __"chinese"__).
 
 Does nothing if a schema already exists.
 - __Returns:__
@@ -41,10 +48,10 @@ Does nothing if a schema already exists.
     - __*DatabaseStatus.OK*__ - database created.
 
 __enable_logger()__\
-Enable logger (stream and file).
+Enable (stream and file) logger.
 
 __disable_logger()__\
-Disable logger (stream and file).
+Disable (stream and file) logger.
 
 __create_index()__\
 (Re)Create `extra indices`.
@@ -89,7 +96,7 @@ __Note__: `Item`-count dict fields are not guaranteed to be sorted.
     A dict if found, otherwise None, containing these fields:
       - Single-valued: 'id', 'path', 'note', 'full_name', 'full_name_original', 'pretty_name', 'pretty_name_original',
       - `Item`-count dict: 'parodies', 'characters', 'tags', 'artists', 'groups', 'languages',
-      - 'pages'.\
+      - List-like: 'pages' (in order).
 
 __get_doujinshi_in_page(*page_size, page_number, n_doujinshis*__*=None*__)__\
 Retrieve a paginated list of latest (by ID) __partial-data__ `doujinshi`.\
@@ -116,7 +123,9 @@ __Note__: List-like fields are not guaranteed to be sorted.
     End ID of the range (inclusive). If None, retrieves all doujinshi from *id_start*.
 - __Returns:__
   - __doujinshi_list : *list of dict*__\
-    Each dict is the same as one returned by __get_doujinshi()__.
+    A list of dict representing doujinshi, expected fields:
+      - Single-valued: 'id', 'path', 'note', 'full_name', 'full_name_original', 'pretty_name', 'pretty_name_original',
+      - List-like: 'parodies', 'characters', 'tags', 'artists', 'groups', 'languages' (not guaranteed to be sorted), 'pages' (in order).
 
 __get_count_of_parodies(*names*)__\
 Get the number of `doujinshi` associated with each `parody`.
@@ -486,6 +495,7 @@ Update the full name of a `doujinshi`.
     Status of the operation.
     - __*DatabaseStatus.OK*__ - full name updated.
     - __*DatabaseStatus.NOT_FOUND*__ - `doujinshi` not found.
+    - __*DatabaseStatus.INTEGRITY_ERROR*__ - full name is not a non-empty string.
     - __*DatabaseStatus.EXCEPTION*__ - other errors.
 
 __update_full_name_original_of_doujinshi(*doujinshi_id, value*)__\
@@ -500,6 +510,7 @@ Update the original full name of a `doujinshi`.
     Status of the operation.
     - __*DatabaseStatus.OK*__ - original full name updated.
     - __*DatabaseStatus.NOT_FOUND*__ - `doujinshi` not found.
+    - __*DatabaseStatus.INTEGRITY_ERROR*__ - original full name is not a non-empty string.
     - __*DatabaseStatus.EXCEPTION*__ - other errors.
 
 __update_pretty_name_of_doujinshi(*doujinshi_id, value*)__\
@@ -514,6 +525,7 @@ Update the pretty name of a `doujinshi`.
     Status of the operation.
     - __*DatabaseStatus.OK*__ - pretty name updated.
     - __*DatabaseStatus.NOT_FOUND*__ - `doujinshi` not found.
+    - __*DatabaseStatus.INTEGRITY_ERROR*__ - pretty name is not a non-empty string.
     - __*DatabaseStatus.EXCEPTION*__ - other errors.
 
 __update_pretty_name_original_of_doujinshi(*doujinshi_id, value*)__\
@@ -528,6 +540,7 @@ Update the original pretty name of a `doujinshi`.
     Status of the operation.
     - __*DatabaseStatus.OK*__ - original pretty name updated.
     - __*DatabaseStatus.NOT_FOUND*__ - `doujinshi` not found.
+    - __*DatabaseStatus.INTEGRITY_ERROR*__ - original pretty name is not a non-empty string.
     - __*DatabaseStatus.EXCEPTION*__ - other errors.
 
 __update_note_of_doujinshi(*doujinshi_id, value*)__\
@@ -542,6 +555,7 @@ Update the note of a `doujinshi`.
     Status of the operation.
     - __*DatabaseStatus.OK*__ - note updated.
     - __*DatabaseStatus.NOT_FOUND*__ - `doujinshi` not found.
+    - __*DatabaseStatus.INTEGRITY_ERROR*__ - note is not a non-empty string.
     - __*DatabaseStatus.EXCEPTION*__ - other errors.
 
 __update_path_of_doujinshi(*doujinshi_id, value*)__\
@@ -556,7 +570,7 @@ Update the path of a `doujinshi`.
     Status of the operation.
     - __*DatabaseStatus.OK*__ - path updated.
     - __*DatabaseStatus.NOT_FOUND*__ - `doujinshi` not found.
-    - __*DatabaseStatus.INTEGRITY_ERROR*__ - integrity errors (likely path uniqueness violation).
+    - __*DatabaseStatus.INTEGRITY_ERROR*__ - path is not a non-empty string or not unique.
     - __*DatabaseStatus.EXCEPTION*__ - other errors.
 
 __update_count_of_parody()__\

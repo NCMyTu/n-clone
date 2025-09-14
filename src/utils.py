@@ -21,6 +21,9 @@ def validate_doujinshi(doujinshi, user_prompt=True):
 	errors = []
 	warnings = []
 
+	if not isinstance(doujinshi, dict):
+		print(f"ERRORS:\n\tdoujinshi must be a dict. Got {type(doujinshi)} instead.")
+		return False
 	if isinstance(doujinshi["id"], bool):
 		errors.append(f"id must be an int. Got {doujinshi["id"]!r} instead.")
 	if not isinstance(doujinshi["id"], int):

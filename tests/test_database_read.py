@@ -1,7 +1,11 @@
 import pytest
-from src import DatabaseStatus
 import random
 import math
+
+
+# NOTE:
+# This test only tests items retrieval correctness.
+# For item count tests, go to test_database_item_count.py.
 
 
 def split_list(list_to_split, k):
@@ -16,7 +20,7 @@ def compare_retrieved_and_expected_doujinshi(retrieved, expected, has_count):
 		"full_name", "full_name_original", "pretty_name", "pretty_name_original"
 	]
 	for field in single_valued_fields:
-		assert retrieved[field] == expected[field]
+		assert retrieved[field] == expected[field], f"Mismatch on field {field}"
 
 	list_like_fields = ["parodies", "characters", "tags", "artists", "groups", "languages"]
 	for field in list_like_fields:
@@ -40,8 +44,7 @@ def test_get_one_doujinshi(dbm, sample_n_random_doujinshi):
 		compare_retrieved_and_expected_doujinshi(retrieved_doujinshi, expected_doujinshi, has_count=True)
 
 
-@pytest.mark.parametrize("n_doujinshi, page_size",
-[
+@pytest.mark.parametrize("n_doujinshi, page_size", [
 	# n_doujinshi divisible by page_size
 	(9, 9), # 1 pages
 	(9*2, 9), # 2 pages
@@ -61,7 +64,7 @@ def test_get_doujinshi_in_page_valid_page_number(dbm, n_doujinshi, page_size, us
 		assert retrieved["cover_filename"] == expected["pages"][0], "Mismatch cover_filename"
 		fields_to_check = ["id", "full_name", "path"]
 		for field in fields_to_check:
-			assert retrieved[field] == expected[field]
+			assert retrieved[field] == expected[field], f"Mismatch on field {field}"
 
 	doujinshi_list, _ = sample_n_random_doujinshi(n_doujinshi)
 
@@ -100,12 +103,12 @@ def test_get_doujinshi_in_page_illegal_page_number(dbm, sample_n_random_doujinsh
 	assert should_be_empty == []
 
 
-@pytest.mark.parametrize("n_doujinshi, expected_n_doujinshi, id_start, id_end",
-[
+@pytest.mark.parametrize("n_doujinshi, expected_n_doujinshi, id_start, id_end", [
 	(8, 1, 5, 5),
 	(8, 8, 1, 8),
 	(8, 7, 1, 7),
 	(8, 6, 2, 7),
+	(8, 0, 9, 9),
 	(8, 7, 2, 19),
 	(8, 8, 1, 29),
 	(8, 6, -1, 6),
@@ -121,7 +124,8 @@ def test_get_doujinshi_in_range(dbm, n_doujinshi, sample_n_random_doujinshi, id_
 	for doujinshi in doujinshi_list:
 		dbm.insert_doujinshi(doujinshi)
 
-	expected_doujinshi_list = sorted(d for d in doujinshi_list if d["id"] >= id_start and d["id"] <= id_end)
+	expected_doujinshi_list = [d for d in doujinshi_list if d["id"] >= id_start and d["id"] <= id_end]
+	expected_doujinshi_list.sort(key=lambda d: d["id"])
 	retrieved_doujinshi_list = dbm.get_doujinshi_in_range(id_start, id_end)
 
 	len_retrieved = len(retrieved_doujinshi_list)

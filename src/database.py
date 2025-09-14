@@ -121,12 +121,53 @@ class DatabaseManager:
 				DatabaseStatus.OK - database created.
 		"""
 		Base.metadata.create_all(self.engine)
+		self.logger.success(msg="database created", stacklevel=1)
+		self.create_index()
+		self.create_triggers()
 		self.insert_language("english")
 		self.insert_language("japanese")
 		self.insert_language("textless")
 		self.insert_language("chinese")
-		self.logger.success(msg="database created", stacklevel=1)
 		return DatabaseStatus.OK
+
+
+	# TODO: update docs.
+	def _create_triggers_increase(self):
+		tbl_names = ["parody", "character", "tag", "artist", "circle", "language"]
+		return [f"""
+			CREATE TRIGGER IF NOT EXISTS trig_a_i_incr_{tbl_name}_count
+			AFTER INSERT ON doujinshi_{tbl_name}
+			FOR EACH ROW
+			BEGIN
+				UPDATE {tbl_name}
+				SET count = count + 1
+				WHERE id = NEW.{tbl_name}_id;
+			END;
+		""" for tbl_name in tbl_names
+		]
+	def _create_triggers_decrease(self):
+		tbl_names = ["parody", "character", "tag", "artist", "circle", "language"]
+		return [f"""
+			CREATE TRIGGER IF NOT EXISTS trig_a_d_decr_{tbl_name}_count
+			AFTER DELETE ON doujinshi_{tbl_name}
+			FOR EACH ROW
+			BEGIN
+				UPDATE {tbl_name}
+				SET count = count - 1
+				WHERE id = OLD.{tbl_name}_id;
+			END;
+		""" for tbl_name in tbl_names
+		]
+
+
+	def create_triggers(self):
+		with self.session() as session:
+			for trigger in self._create_triggers_increase():
+				session.execute(text(trigger))
+			for trigger in self._create_triggers_decrease():
+				session.execute(text(trigger))
+			self.logger.success("triggers created", stacklevel=1)
+			return DatabaseStatus.OK
 
 
 	def _idx_components(self):

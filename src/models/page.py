@@ -15,16 +15,14 @@ PAGE_SQLITE_WITH_ROWID = False
 class Page(Base):
 	__tablename__ = "page"
 
-	# id: Mapped[int] = mapped_column(Integer, primary_key=True)
-	filename: Mapped[str] = mapped_column(Text, nullable=False)
-	order_number: Mapped[int] = mapped_column(Integer, nullable=False, primary_key=True)
-
 	doujinshi_id: Mapped[int] = mapped_column(
 		Integer,
 		ForeignKey("doujinshi.id", ondelete="CASCADE"),
-		nullable=False,
 		primary_key=True
 	)
+	order_number: Mapped[int] = mapped_column(Integer, primary_key=True)
+	filename: Mapped[str] = mapped_column(Text, nullable=False)
+
 	doujinshi = relationship(
 		"Doujinshi",
 		foreign_keys=[doujinshi_id],
@@ -34,6 +32,5 @@ class Page(Base):
 		CheckConstraint("length(trim(filename, ' \n\t\r\b\v\f')) > 0"),
 		CheckConstraint("order_number > 0"),
 		UniqueConstraint("doujinshi_id", "filename"),
-		# UniqueConstraint("doujinshi_id", "order_number"),
 		{"sqlite_with_rowid": PAGE_SQLITE_WITH_ROWID}
 	)

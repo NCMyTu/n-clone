@@ -215,13 +215,8 @@ def batch_insert_model(dbm, model, data):
 	items_to_insert = [{"name": parody} for parody in data]
 
 	with dbm.session() as session:
-		try:
-			session.execute(insert(model), items_to_insert)
-			session.commit()
-		except IntegrityError:
-			raise
-		except Exception:
-			raise
+		session.execute(insert(model), items_to_insert)
+		session.commit()
 
 
 def _benchmark_get_doujinshi_predictable(dbm, id_start, step, n_times):
@@ -313,7 +308,6 @@ def benchmark_insert_doujinshi(dbm, n_doujinshis):
 	print("-" * 30)
 
 	with dbm.session() as session:
-		session.execute(text("PRAGMA foreign_keys = ON"))
 		session.execute(text("DELETE FROM doujinshi WHERE id > 1000000"))
 		session.commit()
 
@@ -346,7 +340,7 @@ def benchmark_get_doujinshi_in_page(dbm, n_pages):
 
 		for i, page_number in enumerate(page_range):
 			start_time = time.perf_counter()
-			_, doujinshi_batch = dbm.get_doujinshi_in_page(page_size, page_number, 1000000)
+			_ = dbm.get_doujinshi_in_page(page_size, page_number, 1000000)
 			durations.append(time.perf_counter() - start_time)
 
 		stats = get_stats(convert_to_ms(durations))
@@ -373,16 +367,19 @@ if __name__ == "__main__":
 
 	print("-" * 30)
 
-	# ----------------------------
-	# Only run this when inserting.
+	# # ----------------------------
+	# # Only run this when inserting.
+	# # https://www.powersync.com/blog/sqlite-optimizations-for-ultra-high-performance#strongstrong1-enable-write-ahead-logging-wal-and-disable-synchronous-mode
 	# with dbm.session() as session:
-	# 	session.execute(text("PRAGMA synchronous = OFF;"))
-	# 	session.execute(text("PRAGMA journal_mode = MEMORY;"))
-	# 	session.execute(text("PRAGMA temp_store = MEMORY;"))
+	# 	session.execute(text("PRAGMA synchronous = NORMAL;")) # per connection
+	# 	session.execute(text("PRAGMA journal_mode = WAL;")) # db level
+	# 	session.execute(text("PRAGMA journal_size_limit = 134220000;")) # db level
 	# 	session.commit()
 
-	# Insert these first...
+
+	# # Insert these first...
 	# try:
+	# 	print("Inserting models...")
 	# 	batch_insert_model(dbm, Parody, PARODIES)
 	# 	batch_insert_model(dbm, Character, CHARACTERS)
 	# 	batch_insert_model(dbm, Tag, TAGS)
@@ -393,8 +390,9 @@ if __name__ == "__main__":
 	# except Exception as e:
 	# 	raise ValueError(f"Unexpected exception when inserting model.\n{e}")
 
-	# ...then this.
+	# # ...then this.
 	# try:
+	# 	print("Inserting doujinshi...")
 	# 	d_gen = generate_n_sample_doujinshis(n_doujinshis)
 	# 	batch_insert_doujinshi(dbm, d_gen, insert_batch_size)
 	# except IntegrityError:
@@ -402,8 +400,9 @@ if __name__ == "__main__":
 	# except Exception as e:
 	# 	raise ValueError(f"Unexpected exception when inserting doujinshi.\n{e}")
 
-	# ----------------------------
-	# Only need to run this after inserting or creating/dropping index.
+	# # ----------------------------
+	# # Only need to run this after inserting or creating/dropping index.
+	# print("Vacuuming...")
 	# dbm.vacuum()
 	
 	# ----------------------------
@@ -411,10 +410,10 @@ if __name__ == "__main__":
 	# print(durations)
 	# print(f"min: {min(durations):.2f}, max: {max(durations):.2f}, avg: {sum(durations)/len(durations):.2f}")
 
-	# ----------------------------
-	# for db_type in [with_rowid_path, without_rowid_path]:
-	# 	size = Path(db_type).stat().st_size
-	# 	print(f"{db_type}: {size / (1024**3):.4f}GB")
+	# # ----------------------------
+	# for db_path in [with_rowid_path, without_rowid_path]:
+	# 	size = Path(db_path).stat().st_size
+	# 	print(f"{db_path}: {size / (1024**3):.4f}GB")
 
 	# ----------------------------
 	# benchmark_get_doujinshi(dbm, 1_000, "predictable")
@@ -424,8 +423,8 @@ if __name__ == "__main__":
 	# benchmark_insert_doujinshi(dbm, 1000)
 
 	# ----------------------------
-	# benchmark_get_doujinshi_in_page(dbm, n_pages=500)
+	benchmark_get_doujinshi_in_page(dbm, n_pages=500)
 
-	start = time.perf_counter()
-	print(dbm.how_many_doujinshi())
-	print(time.perf_counter() - start)
+	# start = time.perf_counter()
+	# print(dbm.how_many_doujinshi())
+	# print(time.perf_counter() - start)

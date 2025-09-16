@@ -131,7 +131,6 @@ class DatabaseManager:
 		return DatabaseStatus.OK
 
 
-	# TODO: update docs.
 	def _create_triggers_increase(self):
 		tbl_names = ["parody", "character", "tag", "artist", "circle", "language"]
 		return [f"""
@@ -484,7 +483,7 @@ class DatabaseManager:
 		with self.session() as session:
 			# The number of item is (expected to be) way smaller than The number of doujinshi,
 			# so check item duplication first?
-			# TODO: benchmark performance with model.name indices.
+			# TODO: benchmark performance when indexing model.name.
 			statement = select(model).where(model.name == name)
 			model_to_add = session.scalar(statement)
 			model_str = f"{model.__tablename__} {name!r}"
@@ -754,7 +753,6 @@ class DatabaseManager:
 				self.logger.success(f"{doujinshi_str} updated {column_name} {value!r}", stacklevel=2)
 				return DatabaseStatus.OK
 			except ValueError as e:
-				# TODO: update this in doc.
 				if "must be a non-empty string" in str(e):
 					# Refer to logger.DatabaseLogger.log_event
 					msg = f"'{column_name} must be a non-empty string, got {value!r} instead"
@@ -889,6 +887,7 @@ class DatabaseManager:
 			d_dict["pages"] = [p.filename for p in doujinshi.pages]
 
 			# TODO: check raw SQL (get count by id instead)
+			# 		sort now instead of later?
 			relationships = {
 				"parodies": (Parody, doujinshi.parodies),
 				"characters": (Character, doujinshi.characters),

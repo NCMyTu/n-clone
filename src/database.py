@@ -926,7 +926,7 @@ class DatabaseManager:
 		-------
 			doujinshi_list : list of dict
 				Each dict contains: 'id', 'full_name', 'path', 'cover_filename' and 'language_id'.
-				'language_id' is an int with this mapping:
+				'language_id' mapping is as follows:
 					None-no language,
 					1-english,
 					2-japanese,

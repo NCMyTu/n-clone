@@ -97,7 +97,9 @@ def validate_doujinshi(doujinshi, user_prompt=True):
 			if lang.strip() not in VALID_LANGUAGES:
 				warnings.append(f"Unknown language '{lang}'.")
 
-	if (len(set(doujinshi["pages"])) != len(doujinshi["pages"])): 
+	if not doujinshi["pages"]:
+		errors.append("pages must not be empty.")
+	if (len(set(doujinshi["pages"])) != len(doujinshi["pages"])):
 		errors.append("pages has duplicate file names.")
 
 	if (not warnings) and (not errors):

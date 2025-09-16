@@ -86,7 +86,7 @@ Get the total number of `doujinshi` in the database.
 
 __get_doujinshi(*doujinshi_id*)__\
 Retrieve a __full-data__ `doujinshi` by ID.\
-Use this method when routing to /g/{id}.\
+Use this method when routing to */g/{id}*.\
 __Note__: `Item`-count dict fields are not guaranteed to be sorted.
 - __Parameters:__
   - __doujinshi_id : *int*__\
@@ -95,12 +95,12 @@ __Note__: `Item`-count dict fields are not guaranteed to be sorted.
   - __doujinshi : *dict or None*__\
     A dict if found, otherwise None, containing these fields:
       - Single-valued: 'id', 'path', 'note', 'full_name', 'full_name_original', 'pretty_name', 'pretty_name_original',
-      - `Item`-count dict: 'parodies', 'characters', 'tags', 'artists', 'groups', 'languages',
+      - `Item`-count dict: 'parodies', 'characters', 'tags', 'artists', 'groups', 'languages' (not guaranteed to be sorted),
       - List-like: 'pages' (in order).
 
 __get_doujinshi_in_page(*page_size, page_number, n_doujinshis*__*=None*__)__\
 Retrieve a paginated list of latest (by ID) __partial-data__ `doujinshi`.\
-Use this method when routing to /?page={page_number}.
+Use this method when routing to */?page={page_number}*.
 - __Parameters:__
   - __page_size : *int*__\
     Number of `doujinshi` per page.
@@ -110,7 +110,12 @@ Use this method when routing to /?page={page_number}.
     Total number of `doujinshi`. If not None, this value is used to optimize retrieval of later pages.
 - __Returns:__
   - __doujinshi_list : *list of dict*__\
-    Each dict contains these fields: 'id', 'full_name', 'path' and 'cover_filename'.
+    Each dict contains the these fields: 'id' 'full_name' 'path' 'cover_filename' and 'language_id'. 'language_id' mapping is as follows:
+      - `None`: no language,
+      - `1`: english,
+      - `2`: japanese,
+      - `3`: chinese,
+      - `4`: textless.
 
 __get_doujinshi_in_range(*id_start*__*=1*__, id_end__*=None*__)__\
 Retrieve all __full-data__ `doujinshi` in an ID range.\

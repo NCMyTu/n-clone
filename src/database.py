@@ -124,10 +124,14 @@ class DatabaseManager:
 		self.logger.success(msg="database created", stacklevel=1)
 		self.create_index()
 		self.create_triggers()
+
+		# Note:
+		# The language insertion order determines priority.
+		# MIN(language_id) retrieves the primary (most prioritized) language.
 		self.insert_language("english")
 		self.insert_language("japanese")
-		self.insert_language("textless")
 		self.insert_language("chinese")
+		self.insert_language("textless")
 		return DatabaseStatus.OK
 
 
@@ -921,14 +925,21 @@ class DatabaseManager:
 		Returns
 		-------
 			doujinshi_list : list of dict
-				Each dict contains: 'id', 'full_name', 'path' and 'cover_filename'.
+				Each dict contains: 'id', 'full_name', 'path', 'cover_filename' and 'language_id'.
+				'language_id' is an int with this mapping:
+					None-no language,
+					1-english,
+					2-japanese,
+					3-chinese,
+					4-textless.
 		"""
 		if page_number < 1:
 			return []
 
 		doujinshi_list = []
 
-		desc_order = True
+		# Calculate offset and limit.
+		d_id_desc_order = True
 		offset = (page_number - 1) * page_size
 		limit = page_size
 
@@ -938,9 +949,9 @@ class DatabaseManager:
 
 			# Page is in second half.
 			if page_number > math.ceil(max_page_number / 2):
-				desc_order = False
+				d_id_desc_order = False
 
-				# Special case: last page
+				# Special case: last page.
 				if page_number == max_page_number:
 					limit = last_page_size
 					offset = (max_page_number - page_number) * page_size
@@ -949,36 +960,51 @@ class DatabaseManager:
 
 		with self.session() as session:
 			# No try/except needed, same as in get_doujinshi.
-			subq = (
+			subq_cover_filename = (
 				select(Page.filename)
 				.where(Page.doujinshi_id == Doujinshi.id)
 				.where(Page.order_number == 1)
 				.scalar_subquery()
 			)
+			# Only retrieve language id since
+			# it's faster and the set of languages is unlikely to change.
+			subq_lang_id = (
+				select(func.min(d_language.c.language_id))
+				.where(d_language.c.doujinshi_id == Doujinshi.id)
+				.scalar_subquery()
+			)
 
-			if desc_order:
-				order = Doujinshi.id.desc()
-			else:
-				order = Doujinshi.id.asc()
-
+			# Retrieve then reverse result in python if needed.
+			order = Doujinshi.id.desc() if d_id_desc_order else Doujinshi.id.asc()
 			statement = (
 				select(
 					Doujinshi.id, Doujinshi.full_name, Doujinshi.path,
-					subq.label("filename")
+					subq_cover_filename.label("cover_filename"),
+					subq_lang_id.label("language_id")
 				)
 				.order_by(order)
 				.limit(limit)
 				.offset(offset)
 			)
-			results = session.execute(statement).all()
+			result = session.execute(statement).all()
+			result = result if d_id_desc_order else reversed(result)
 
-			iter_results = results if desc_order else reversed(results)
-			for doujinshi_id, full_name, path, cover_filename in iter_results:
+			# Retrieve then reverse result in db instead of in python.
+			# Performance is nearly identical to the above approach.
+			# Keeping it here as a reference for potential future use.
+			# if d_id_desc_order:
+			# 	statement = select(Doujinshi.id, Doujinshi.full_name, Doujinshi.path,subq_cover_filename.label("cover_filename"),subq_lang_id.label("language_id")).order_by(Doujinshi.id.desc()).limit(limit).offset(offset)
+			# else:
+			# 	statement = (select(select(Doujinshi.id,Doujinshi.full_name,Doujinshi.path,subq_cover_filename.label("cover_filename"),subq_lang_id.label("language_id")).order_by(Doujinshi.id.asc()).limit(limit).offset(offset).subquery()).order_by(inner.c.id.desc()))
+			# result = session.execute(statement).all()
+
+			for doujinshi_id, full_name, path, cover_filename, language_id in result:
 				doujinshi_list.append({
 					"id": doujinshi_id,
 					"full_name": full_name,
 					"path": path,
-					"cover_filename": cover_filename
+					"cover_filename": cover_filename,
+					"language_id": language_id
 				})
 
 			return doujinshi_list

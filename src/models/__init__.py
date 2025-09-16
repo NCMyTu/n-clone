@@ -8,6 +8,7 @@ from .group import Group
 from .language import Language
 from .page import Page
 
+
 __all__ = [
 	"Base",
 	"Doujinshi",

@@ -60,19 +60,29 @@ def test_get_one_doujinshi(dbm, sample_n_random_doujinshi):
 ])
 @pytest.mark.parametrize("use_cache", [True, False])
 def test_get_doujinshi_in_page_valid_page_number(dbm, n_doujinshi, page_size, use_cache, sample_n_random_doujinshi):
-	def compare_doujinshi(retrieved, expected):
-		assert retrieved["cover_filename"] == expected["pages"][0], "Mismatch cover_filename"
+	def compare_partial_doujinshi(retrieved, expected):
 		fields_to_check = ["id", "full_name", "path"]
 		for field in fields_to_check:
 			assert retrieved[field] == expected[field], f"Mismatch on field {field}"
 
+		assert retrieved["cover_filename"] == expected["pages"][0], "Mismatch cover_filename"
+
+		if not expected["languages"]:
+			assert retrieved["language_id"] == None
+		elif "english" in expected["languages"]:
+			assert retrieved["language_id"] == 1
+		elif "japanese" in expected["languages"]:
+			assert retrieved["language_id"] == 2
+		elif "chinese" in expected["languages"]:
+			assert retrieved["language_id"] == 3
+		elif "textless" in expected["languages"]:
+			assert retrieved["language_id"] == 4
+
 	doujinshi_list, _ = sample_n_random_doujinshi(n_doujinshi)
+	doujinshi_list.sort(key=lambda d: d["id"], reverse=True)
 
 	for doujinshi in doujinshi_list:
 		dbm.insert_doujinshi(doujinshi)
-
-	doujinshi_list.sort(key=lambda d: d["id"], reverse=True)
-	expected_pages = split_list(doujinshi_list, page_size)
 
 	retrieved_pages = []
 	for page_no in range(1, math.ceil(n_doujinshi / page_size) + 1):
@@ -83,10 +93,14 @@ def test_get_doujinshi_in_page_valid_page_number(dbm, n_doujinshi, page_size, us
 		assert doujinshi_batch
 		retrieved_pages.append(doujinshi_batch)
 
+	expected_pages = split_list(doujinshi_list, page_size)
 	for i, (retrieved_page, expected_page) in enumerate(zip(retrieved_pages, expected_pages)):
 		assert len(retrieved_page) == len(expected_page), f"Mismatch number of doujinshis on page {i+1}."
+		retrieved_id = [d["id"] for d in retrieved_page]
+		expected_id = [d["id"] for d in expected_page]
+		assert retrieved_id == expected_id, f"Mismatch id, expected: {expected_id}, got {retrieved_id}."
 		for retrieved_doujinshi, expected_doujinshi in zip(retrieved_page, expected_page):
-			compare_doujinshi(retrieved_doujinshi, expected_doujinshi)
+			compare_partial_doujinshi(retrieved_doujinshi, expected_doujinshi)
 
 
 @pytest.mark.parametrize("illegal_page_number", [-1, 0, 10**6])

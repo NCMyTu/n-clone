@@ -54,6 +54,7 @@ def test_add_pages_to_doujinshi(dbm, sample_doujinshi):
 
 	random.seed(2)
 	random.shuffle(new_pages)
+
 	assert dbm.add_pages_to_doujinshi(d_id, new_pages) == DatabaseStatus.OK
 
 	retrieved_doujinshi = dbm.get_doujinshi(d_id)
@@ -103,18 +104,18 @@ def test_remove_item_from_doujinshi(dbm, sample_doujinshi, remove_method_name, i
 	assert len(retrieved_doujinshi[field]) == len(sample_doujinshi[field]) - n_items_to_remove
 
 
-def test_remove_pages_from_doujinshi(dbm, sample_doujinshi):
+def test_remove_all_pages_from_doujinshi(dbm, sample_doujinshi):
 	dbm.insert_doujinshi(sample_doujinshi, False)
 	d_id = sample_doujinshi["id"]
 
-	assert dbm.remove_pages_from_doujinshi(d_id) == DatabaseStatus.OK
+	assert dbm.remove_all_pages_from_doujinshi(d_id) == DatabaseStatus.OK
 
 	# Verify in the actual doujinshi
 	retrieved_doujinshi = dbm.get_doujinshi(d_id)
 	assert not retrieved_doujinshi["pages"]
 
 	# Remove empty `pages` should be OK
-	assert dbm.remove_pages_from_doujinshi(d_id) == DatabaseStatus.OK
+	assert dbm.remove_all_pages_from_doujinshi(d_id) == DatabaseStatus.OK
 
 
 @pytest.mark.parametrize("update_method_name, column_name", [
@@ -129,11 +130,11 @@ def test_remove_pages_from_doujinshi(dbm, sample_doujinshi):
     ("", DatabaseStatus.INTEGRITY_ERROR),
     (" ", DatabaseStatus.INTEGRITY_ERROR),
     (" \n\t  ", DatabaseStatus.INTEGRITY_ERROR),
-    ([], DatabaseStatus.INTEGRITY_ERROR),
-    ((), DatabaseStatus.INTEGRITY_ERROR),
-    (set(), DatabaseStatus.INTEGRITY_ERROR),
-    ({}, DatabaseStatus.INTEGRITY_ERROR),
-    (object(), DatabaseStatus.INTEGRITY_ERROR),
+    ([], DatabaseStatus.EXCEPTION),
+    ((), DatabaseStatus.EXCEPTION),
+    (set(), DatabaseStatus.EXCEPTION),
+    ({}, DatabaseStatus.EXCEPTION),
+    (object(), DatabaseStatus.EXCEPTION),
 ])
 def test_update_doujinshi_column(dbm, sample_doujinshi, update_method_name, column_name, value, expected_status):
 	dbm.insert_doujinshi(sample_doujinshi, False)

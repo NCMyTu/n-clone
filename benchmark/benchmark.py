@@ -20,18 +20,6 @@ GROUPS = {f"group_{i}": [i, 0] for i in range(1, 500)}
 LANGUAGES = {language: [i+1, 0] for i, language in enumerate(["english", "japanese", "textless", "chinese"])}
 
 
-def time_func(func, n=1, *args, **kwargs):
-	durations = []
-	result = None
-
-	for _ in range(n):
-		start = time.perf_counter()
-		result = func(*args, **kwargs)
-		durations.append(time.perf_counter() - start)
-
-	return result, durations
-
-
 def convert_to_ms(durations):
 	return [d * 1000 for d in durations]
 
@@ -355,7 +343,7 @@ if __name__ == "__main__":
 	without_rowid_path = "benchmark/db/1M_without_rowid.db.sqlite"
 
 	db_path = without_rowid_path
-	print(db_path, "\n", "-" * 30)
+	print(f"{db_path}\n{'-' * 30}")
 
 	dbm = DatabaseManager(url=f"sqlite:///{db_path}", log_path="benchmark/db/1M.log", echo=False)
 	dbm.logger.disable()
@@ -363,7 +351,7 @@ if __name__ == "__main__":
 
 	# dbm.drop_index()
 	# dbm.create_index()
-	dbm.show_index()
+	# dbm.show_index()
 
 	print("-" * 30)
 
@@ -404,11 +392,6 @@ if __name__ == "__main__":
 	# # Only need to run this after inserting or creating/dropping index.
 	# print("Vacuuming...")
 	# dbm.vacuum()
-	
-	# ----------------------------
-	# _, durations = time_func(dbm.update_count_of_all, n=10)
-	# print(durations)
-	# print(f"min: {min(durations):.2f}, max: {max(durations):.2f}, avg: {sum(durations)/len(durations):.2f}")
 
 	# # ----------------------------
 	# for db_path in [with_rowid_path, without_rowid_path]:
@@ -423,8 +406,49 @@ if __name__ == "__main__":
 	# benchmark_insert_doujinshi(dbm, 1000)
 
 	# ----------------------------
-	benchmark_get_doujinshi_in_page(dbm, n_pages=500)
+	# benchmark_get_doujinshi_in_page(dbm, n_pages=500)
 
 	# start = time.perf_counter()
 	# print(dbm.how_many_doujinshi())
 	# print(time.perf_counter() - start)
+
+	# dur = []
+	# # for page_num in range(20_000, 60_000, 299):
+	# for page_num in range(300, 700, 3):
+	# 	start = time.perf_counter()
+	# 	_ = dbm.get_doujinshi_in_page(page_size=1000, page_number=page_num)
+	# 	dur.append(time.perf_counter() - start)
+
+	# stats = get_stats(dur)
+	# print(f"avg: {stats["avg"]}, p50: {stats["p50"]}, p95: {stats["p95"]}, p99: {stats["p99"]}")
+
+
+
+
+	# dbm = DatabaseManager(url=f"sqlite:///{db_path}", log_path="benchmark/db/1M.log", echo=False)
+
+	# dbm.insert_parody("a")
+	# dbm.add_parody_to_doujinshi(1, "parody_1")
+
+	# dbm.disable_logger()
+	# d = {'id': -1, 'full_name': 'Test', 'pretty_name': 'e','full_name_original': 'ts', 'pretty_name_original': 't','path': 'p-1', 'note': 'note','parodies': ["parody_1"], 'characters': ["character_1"], 'tags': ["tag_1"],'artists': ["artist_1"], 'groups': ["group_1"], 'languages': ["english"],'pages': ['page_1']}
+	# dbm.insert_doujinshi(d)
+
+	dur = []
+	for i in range(1_000_000, 1, -10000):
+		start = time.perf_counter()
+		dbm.get_doujinshi_in_range(i, i+100)
+		end = time.perf_counter()
+		dur.append(end-start)
+	print(get_stats(dur))
+
+	# print("\n\n--------------------------------------------------------------------------")
+	# a = dbm.get_doujinshi_in_range(1, 10)
+
+	# with dbm.session() as session:
+	# 	res = session.execute(text("""
+	# 		EXPLAIN QUERY PLAN
+
+	# 		"""))
+	# 	for r in res:
+	# 		print(r)

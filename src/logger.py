@@ -26,7 +26,7 @@ class JsonFormatter(logging.Formatter):
 		if self.include_time:
 			log_record["time"] = self.formatTime(record, datefmt="UTC %Y-%m-%d %H:%M:%S")
 
-		log_record["func"] = record.funcName,
+		log_record["func"] = record.funcName
 		log_record["msg"] = record.getMessage()
 		
 		if hasattr(record, "extra_data"):

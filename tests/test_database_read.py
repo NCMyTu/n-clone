@@ -95,7 +95,8 @@ def test_get_doujinshi_in_page_valid_page_number(dbm, n_doujinshi, page_size, us
 
 	expected_pages = split_list(doujinshi_list, page_size)
 	for i, (retrieved_page, expected_page) in enumerate(zip(retrieved_pages, expected_pages)):
-		assert len(retrieved_page) == len(expected_page), f"Mismatch number of doujinshis on page {i+1}."
+		msg = f"Mismatch number of doujinshis on page {i+1}. Expect {len(expected_page)}, got {len(retrieved_page)} instead."
+		assert len(retrieved_page) == len(expected_page), msg
 		retrieved_id = [d["id"] for d in retrieved_page]
 		expected_id = [d["id"] for d in expected_page]
 		assert retrieved_id == expected_id, f"Mismatch id, expected: {expected_id}, got {retrieved_id}."

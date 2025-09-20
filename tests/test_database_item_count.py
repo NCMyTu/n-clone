@@ -33,7 +33,10 @@ def verify_count_using_get_count_of(dbm, expected_item_counts):
 	for item_type in ITEM_TYPES:
 		get_count_of_ = getattr(dbm, f"get_count_of_{item_type}")
 		item_count = get_count_of_(list(expected_item_counts[item_type].keys()))
-		assert item_count == expected_item_counts[item_type]
+
+		assert sorted(list(item_count.keys())) == list(item_count.keys()), "Not sorted."
+		for item, count in item_count.items():
+			assert count == expected_item_counts[item_type][item]
 
 
 def verify_count_in_retrieved_doujinshi(dbm, doujinshi_list, expected_item_counts):

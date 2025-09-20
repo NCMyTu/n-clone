@@ -87,7 +87,6 @@ Get the total number of `doujinshi` in the database.
 __get_doujinshi(*doujinshi_id*)__\
 Retrieve a __full-data__ `doujinshi` by ID.\
 Use this method when routing to */g/{id}*.\
-__Note__: `Item`-count dict fields are not guaranteed to be sorted.
 - __Parameters:__
   - __doujinshi_id : *int*__\
     ID of the `doujinshi` to retrieve.
@@ -95,7 +94,7 @@ __Note__: `Item`-count dict fields are not guaranteed to be sorted.
   - __doujinshi : *dict or None*__\
     A dict if found, otherwise None, containing these fields:
       - Single-valued: 'id', 'path', 'note', 'full_name', 'full_name_original', 'pretty_name', 'pretty_name_original',
-      - `Item`-count dict: 'parodies', 'characters', 'tags', 'artists', 'groups', 'languages' (not guaranteed to be sorted),
+      - `Item`-count dict: 'parodies', 'characters', 'tags', 'artists', 'groups', 'languages' (guaranteed to be sorted),
       - List-like: 'pages' (in order).
 
 __get_doujinshi_in_page(*page_size, page_number, n_doujinshis*__*=None*__)__\
@@ -120,7 +119,6 @@ Use this method when routing to */?page={page_number}*.
 __get_doujinshi_in_range(*id_start*__*=1*__, id_end__*=None*__)__\
 Retrieve all __full-data__ `doujinshi` in an ID range.\
 Use this method when exporting or serializing data.
-__Note__: List-like fields are not guaranteed to be sorted.
 - __Parameters:__
   - __id_start : *int, default=1*__\
     Start ID of the range (inclusive).
@@ -130,7 +128,7 @@ __Note__: List-like fields are not guaranteed to be sorted.
   - __doujinshi_list : *list of dict*__\
     A list of dict representing doujinshi, expected fields:
       - Single-valued: 'id', 'path', 'note', 'full_name', 'full_name_original', 'pretty_name', 'pretty_name_original',
-      - List-like: 'parodies', 'characters', 'tags', 'artists', 'groups', 'languages' (not guaranteed to be sorted), 'pages' (in order).
+      - List-like: 'parodies', 'characters', 'tags', 'artists', 'groups', 'languages' (guaranteed to be sorted), 'pages' (in order).
 
 __get_count_of_parodies(*names*)__\
 Get the number of `doujinshi` associated with each `parody`.
@@ -263,25 +261,23 @@ Insert a `language` into the database.
 
 __insert_doujinshi(*doujinshi, user_prompt*__*=True*__)__\
 Insert a single `doujinshi` into the database.
-
-Performs these actions in order: validate the doujinshi, check for doujinshi duplicates by ID, add doujinshi bare info, link items (except `pages`) to the doujinshi, link `pages` to the doujinshi.
-  - __Parameters:__
-    - __doujinshi : *dict*__\
-      A dict containing doujinshi data. Expected fields:
-        - Single-valued: 'id', 'path', 'note', 'full_name', 'full_name_original', 'pretty_name', 'pretty_name_original',
-        - List of str: 'parodies', 'characters', 'tags', 'artists', 'groups', 'languages', 'pages'.
-    - __user_prompt : *bool, default=True*__\
-      Whether to prompt the user during doujinshi validation.\
-      If all doujinshi fields are already filled, no prompt is shown.\
-      If False, validation will not alert user about empty list-like fields or warnings.
+- __Parameters:__
+  - __doujinshi : *dict*__\
+    A dict containing doujinshi data. Expected fields:
+      - Single-valued: 'id', 'path', 'note', 'full_name', 'full_name_original', 'pretty_name', 'pretty_name_original',
+      - List of str: 'parodies', 'characters', 'tags', 'artists', 'groups', 'languages', 'pages'.
+  - __user_prompt : *bool, default=True*__\
+    Whether to prompt the user during doujinshi validation.\
+    If all doujinshi fields are already filled, no prompt is shown.\
+    If False, validation will not alert user about empty list-like fields or warnings.
 - __Returns:__
-  - __status : *DatabaseStatus*__\
-    Status of the operation.
-    - __*DatabaseStatus.OK*__ - `doujinshi` inserted.
-    - __*DatabaseStatus.VALIDATION_FAILED*__ - validation failed.
-    - __*DatabaseStatus.ALREADY_EXISTS*__ - `doujinshi` ID already exists.
-    - __*DatabaseStatus.INTEGRITY_ERROR*__ - integrity errors (likely "path" uniqueness violation).
-    - __*DatabaseStatus.EXCEPTION*__ - other errors.
+- __status : *DatabaseStatus*__\
+  Status of the operation.
+  - __*DatabaseStatus.OK*__ - `doujinshi` inserted.
+  - __*DatabaseStatus.VALIDATION_FAILED*__ - validation failed.
+  - __*DatabaseStatus.ALREADY_EXISTS*__ - `doujinshi`'s ID already exists.
+  - __*DatabaseStatus.INTEGRITY_ERROR*__ - integrity errors (likely "path" uniqueness violation).
+  - __*DatabaseStatus.EXCEPTION*__ - other errors.
 
 ---
 

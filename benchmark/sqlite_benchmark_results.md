@@ -26,6 +26,7 @@ Summarize database performance benchmarks. As the title suggests, this is specif
 * Item distribution by type:  
   * Each `item type` (except `Page`) has a **97%** chance to sample without replacement a random number of items from **base_min** up to **base_max**, and a **3%** chance to sample without replacement a random number of items from **rare_max** up to the total number of items.
   * `Page` has an **85%** chance to sample the number of pages from a Gaussian distribution with **mean 25** and **stddev 7**, and a **15%** chance with **mean 200** and **stddev 50**. The number of pages is **clamped** between **1** and **250**.
+* **Note**: `Doujinshi` and `items` are inserted directly into the database using IDs (so no duplicate or violation checks are performed). Therefore, insert time is faster than when using the actual insert method provided by `DatabaseManager`, which will be slower due to validation overhead.
 
 | Item type | base_min | base_max | rare_max |
 |-----------|---------:|---------:|---------:|
@@ -37,7 +38,6 @@ Summarize database performance benchmarks. As the title suggests, this is specif
 | Language  | 1 | 1  | 2   |
 
 * Results:
-  * **Note**: `Doujinshi` and `items` are inserted directly into the database using IDs (so no duplicate or violation checks are performed). Therefore, insert time is faster than when using the actual insert method provided by `DatabaseManager`, which will be slower due to validation overhead.
   * File size is calculated after running the command `VACUUM`.
   * Insert time is not shown for configurations with `extra index`, since indices can just be created after insertion (definitely not because I don't have the patience to wait another 1000+ seconds).
 
@@ -214,6 +214,7 @@ Much better (I even had music playing in the background during benchmarking — 
 * This is done after inserting **1,000,000** doujinshi.
 * Use WITHOUT ROWID.
 * Result across **1,000** runs:
+
 | avg | p50 | p95 | p99 |
 |----:|----:|----:|----:|
 | 21.88 | 15.04 | 47.21 | 69.16 |

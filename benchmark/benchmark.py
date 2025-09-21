@@ -191,12 +191,12 @@ def batch_insert_doujinshi(dbm, d_generator, batch_size):
 			except Exception:
 				raise
 		elapsed = time.perf_counter() - start
-		print(f"Inserting {d_batch[-1]['id']} doujinshi took {elapsed:.2f}s.")
+		print(f"Inserting {d_batch[-1]['id']} doujinshi took {elapsed:.2f}s")
 
 		total_time += elapsed
 		n_doujinshis = d_batch[-1]["id"]
 
-	print(f"Inserting {n_doujinshis} doujinshi took a total of {total_time:.2f}s.")
+	print(f"Inserting {n_doujinshis} doujinshi took a total of {total_time:.2f}s")
 
 
 def batch_insert_model(dbm, model, data):
@@ -234,74 +234,25 @@ def benchmark_get_doujinshi(dbm, n_times, mode):
 		dbm.get_doujinshi(doujinshi_id)
 	print(f"Warmed up for {len(warmup_id_range)} rounds.")
 
+	durations = []
+
 	if mode == "predictable":
-		print("-----Predictable access-----")
-		durations = []
+		print("-----Predictable access-----\nMeasure in ms")
 		for doujinshi_id, step in [(3_000, 2), (499_799, 4), (975_172, 7)]:
 			_durations = _benchmark_get_doujinshi_predictable(dbm, doujinshi_id, step, n_times)
 			stats = get_stats(_durations)
-			print(f"id: {doujinshi_id}, step: {step}, avg: {stats['avg']:.2f}ms, p50: {stats['p50']:.2f}ms, p95: {stats['p95']:.2f}ms, p99: {stats['p99']:.2f}ms")
+			print(f"id: {doujinshi_id}, step: {step}, avg: {stats['avg']:.2f}, p50: {stats['p50']:.2f}, p95: {stats['p95']:.2f}, p99: {stats['p99']:.2f}")
 			durations.extend(_durations)
-		stats = get_stats(durations)
-		print(f"Overall, avg: {stats['avg']:.2f}ms, p50: {stats['p50']:.2f}ms, p95: {stats['p95']:.2f}ms, p99: {stats['p99']:.2f}ms")
-
-	if mode == "random":
-		print("-----Random access-----")
-		durations = []
+	elif mode == "random":
+		print("-----Random access-----\nMeasure in ms")
 		for id_range in [(100, 50_000), (470_011, 610_010), (700_001, 1_000_000)]:
 			_durations = _benchmark_get_doujinshi_random(dbm, id_range[0], id_range[1], n_times)
 			stats = get_stats(_durations)
-			print(f"range: {id_range[0]}–{id_range[1]}, avg: {stats['avg']:.2f}ms, p50: {stats['p50']:.2f}ms, p95: {stats['p95']:.2f}ms, p99: {stats['p99']:.2f}ms")
+			print(f"range: {id_range[0]}–{id_range[1]}, avg: {stats['avg']:.2f}, p50: {stats['p50']:.2f}, p95: {stats['p95']:.2f}, p99: {stats['p99']:.2f}")
 			durations.extend(_durations)
-		stats = get_stats(durations)
-		print(f"Overall, avg: {stats['avg']:.2f}ms, p50: {stats['p50']:.2f}ms, p95: {stats['p95']:.2f}ms, p99: {stats['p99']:.2f}ms")
 
-
-def benchmark_insert_doujinshi(dbm, n_doujinshis):
-	random.seed(5)
-
-	row_count_before = get_row_count(dbm)
-
-	ID_TO_PARODY = {v[0]: k for k, v in PARODIES.items()}
-	ID_TO_CHARACTER = {v[0]: k for k, v in CHARACTERS.items()}
-	ID_TO_TAG = {v[0]: k for k, v in TAGS.items()}
-	ID_TO_ARTIST = {v[0]: k for k, v in ARTISTS.items()}
-	ID_TO_GROUP = {v[0]: k for k, v in GROUPS.items()}
-	ID_TO_LANGUAGE = {v[0]: k for k, v in LANGUAGES.items()}
-
-	doujinshis = list(generate_n_sample_doujinshis(n_doujinshis))
-	for i, doujinshi in enumerate(doujinshis):
-		doujinshi["id"] = 1_000_000 + i + 1
-		doujinshi["path"] = f"path/{doujinshi["id"]}"
-		
-		# Evil long lines
-		doujinshi["parodies"] = [ID_TO_PARODY[_id] for _id in doujinshi["parodies"]] or [random.choice(list(ID_TO_PARODY.values()))]
-		doujinshi["characters"] = [ID_TO_CHARACTER[_id] for _id in doujinshi["characters"]] or [random.choice(list(ID_TO_CHARACTER.values()))]
-		doujinshi["tags"] = [ID_TO_TAG[_id] for _id in doujinshi["tags"]] or [random.choice(list(ID_TO_TAG.values()))]
-		doujinshi["artists"] = [ID_TO_ARTIST[_id] for _id in doujinshi["artists"]] or [random.choice(list(ID_TO_ARTIST.values()))]
-		doujinshi["groups"] = [ID_TO_GROUP[_id] for _id in doujinshi["groups"]] or [random.choice(list(ID_TO_GROUP.values()))]
-		doujinshi["languages"] = [ID_TO_LANGUAGE[_id] for _id in doujinshi["languages"]] or [random.choice(list(ID_TO_LANGUAGE.values()))]
-
-	durations = []
-	for doujinshi in doujinshis:
-		start = time.perf_counter()
-		dbm.insert_doujinshi(doujinshi, False)
-		durations.append(time.perf_counter() - start)
-
-	stats = get_stats(convert_to_ms(durations))
-
-	print("-" * 30)
-	print("Benchmarking dbm.insert_doujinshi()...")
-	print(f"avg: {stats['avg']:.2f}ms, p50: {stats['p50']:.2f}ms, p95: {stats['p95']:.2f}ms, p99: {stats['p99']:.2f}ms")
-	print("-" * 30)
-
-	with dbm.session() as session:
-		session.execute(text("DELETE FROM doujinshi WHERE id > 1000000"))
-		session.commit()
-
-	row_count_after = get_row_count(dbm)
-	if row_count_before != row_count_after:
-		raise ValueError("WARNING: ORPHAN ITEMS.")
+	stats = get_stats(durations)
+	print(f"Overall, avg: {stats['avg']:.2f}, p50: {stats['p50']:.2f}, p95: {stats['p95']:.2f}, p99: {stats['p99']:.2f}")
 
 
 def benchmark_get_doujinshi_in_page(dbm, n_pages):
@@ -336,27 +287,67 @@ def benchmark_get_doujinshi_in_page(dbm, n_pages):
 		print(f"p50: {stats['p50']:.2f}ms, p95: {stats['p95']:.2f}ms, p99: {stats['p99']:.2f}ms")
 
 
+def benchmark_insert_doujinshi(dbm, n_doujinshis):
+	random.seed(2)
+
+	row_count_before = get_row_count(dbm)
+
+	ID_TO_PARODY = {v[0]: k for k, v in PARODIES.items()}
+	ID_TO_CHARACTER = {v[0]: k for k, v in CHARACTERS.items()}
+	ID_TO_TAG = {v[0]: k for k, v in TAGS.items()}
+	ID_TO_ARTIST = {v[0]: k for k, v in ARTISTS.items()}
+	ID_TO_GROUP = {v[0]: k for k, v in GROUPS.items()}
+	ID_TO_LANGUAGE = {v[0]: k for k, v in LANGUAGES.items()}
+
+	doujinshis = list(generate_n_sample_doujinshis(n_doujinshis))
+	for i, doujinshi in enumerate(doujinshis):
+		doujinshi["id"] = 1_000_000 + i + 1
+		doujinshi["path"] = f"path/{doujinshi["id"]}"
+		
+		# Evil long lines
+		doujinshi["parodies"] = [ID_TO_PARODY[_id] for _id in doujinshi["parodies"]] or [random.choice(list(ID_TO_PARODY.values()))]
+		doujinshi["characters"] = [ID_TO_CHARACTER[_id] for _id in doujinshi["characters"]] or [random.choice(list(ID_TO_CHARACTER.values()))]
+		doujinshi["tags"] = [ID_TO_TAG[_id] for _id in doujinshi["tags"]] or [random.choice(list(ID_TO_TAG.values()))]
+		doujinshi["artists"] = [ID_TO_ARTIST[_id] for _id in doujinshi["artists"]] or [random.choice(list(ID_TO_ARTIST.values()))]
+		doujinshi["groups"] = [ID_TO_GROUP[_id] for _id in doujinshi["groups"]] or [random.choice(list(ID_TO_GROUP.values()))]
+		doujinshi["languages"] = [ID_TO_LANGUAGE[_id] for _id in doujinshi["languages"]] or [random.choice(list(ID_TO_LANGUAGE.values()))]
+
+	durations = []
+	for doujinshi in doujinshis:
+		start = time.perf_counter()
+		dbm.insert_doujinshi(doujinshi, False)
+		durations.append(time.perf_counter() - start)
+
+	stats = get_stats(convert_to_ms(durations))
+
+	print("-" * 30)
+	print("Benchmarking dbm.insert_doujinshi()...\nMeasure in ms")
+	print(f"avg: {stats['avg']:.2f}, p50: {stats['p50']:.2f}, p95: {stats['p95']:.2f}, p99: {stats['p99']:.2f}")
+	print("-" * 30)
+
+	with dbm.session() as session:
+		session.execute(text("DELETE FROM doujinshi WHERE id > 1000000"))
+		session.commit()
+
+	row_count_after = get_row_count(dbm)
+	if row_count_before != row_count_after:
+		raise ValueError("WARNING: ORPHAN ITEMS.")
+
+
 if __name__ == "__main__":
 	insert_batch_size = 10_000
 	n_doujinshis = 1_000_000
+
 	with_rowid_path = "benchmark/db/1M_rowid.db.sqlite"
 	without_rowid_path = "benchmark/db/1M_without_rowid.db.sqlite"
 
 	db_path = without_rowid_path
-	print(f"{db_path}\n{'-' * 30}")
+	print(f"path: {db_path}\n{'-' * 30}")
 
 	dbm = DatabaseManager(url=f"sqlite:///{db_path}", log_path="benchmark/db/1M.log", echo=False)
 	dbm.logger.disable()
-	dbm.create_database()
-
-	# dbm.drop_index()
-	# dbm.create_index()
-	# dbm.show_index()
-
-	print("-" * 30)
 
 	# # ----------------------------
-	# # Only run this when inserting.
 	# # https://www.powersync.com/blog/sqlite-optimizations-for-ultra-high-performance#strongstrong1-enable-write-ahead-logging-wal-and-disable-synchronous-mode
 	# with dbm.session() as session:
 	# 	session.execute(text("PRAGMA synchronous = NORMAL;")) # per connection
@@ -364,6 +355,8 @@ if __name__ == "__main__":
 	# 	session.execute(text("PRAGMA journal_size_limit = 134220000;")) # db level
 	# 	session.commit()
 
+	# dbm.create_database()
+	# dbm.drop_index()
 
 	# # Insert these first...
 	# try:
@@ -388,7 +381,8 @@ if __name__ == "__main__":
 	# except Exception as e:
 	# 	raise ValueError(f"Unexpected exception when inserting doujinshi.\n{e}")
 
-	# # ----------------------------
+	# dbm.create_index()
+
 	# # Only need to run this after inserting or creating/dropping index.
 	# print("Vacuuming...")
 	# dbm.vacuum()
@@ -408,47 +402,5 @@ if __name__ == "__main__":
 	# ----------------------------
 	# benchmark_get_doujinshi_in_page(dbm, n_pages=500)
 
-	# start = time.perf_counter()
-	# print(dbm.how_many_doujinshi())
-	# print(time.perf_counter() - start)
-
-	# dur = []
-	# # for page_num in range(20_000, 60_000, 299):
-	# for page_num in range(300, 700, 3):
-	# 	start = time.perf_counter()
-	# 	_ = dbm.get_doujinshi_in_page(page_size=1000, page_number=page_num)
-	# 	dur.append(time.perf_counter() - start)
-
-	# stats = get_stats(dur)
-	# print(f"avg: {stats["avg"]}, p50: {stats["p50"]}, p95: {stats["p95"]}, p99: {stats["p99"]}")
-
-
-
-
-	# dbm = DatabaseManager(url=f"sqlite:///{db_path}", log_path="benchmark/db/1M.log", echo=False)
-
-	# dbm.insert_parody("a")
-	# dbm.add_parody_to_doujinshi(1, "parody_1")
-
-	# dbm.disable_logger()
-	# d = {'id': -1, 'full_name': 'Test', 'pretty_name': 'e','full_name_original': 'ts', 'pretty_name_original': 't','path': 'p-1', 'note': 'note','parodies': ["parody_1"], 'characters': ["character_1"], 'tags': ["tag_1"],'artists': ["artist_1"], 'groups': ["group_1"], 'languages': ["english"],'pages': ['page_1']}
-	# dbm.insert_doujinshi(d)
-
-	dur = []
-	for i in range(1_000_000, 1, -10000):
-		start = time.perf_counter()
-		dbm.get_doujinshi_in_range(i, i+100)
-		end = time.perf_counter()
-		dur.append(end-start)
-	print(get_stats(dur))
-
-	# print("\n\n--------------------------------------------------------------------------")
-	# a = dbm.get_doujinshi_in_range(1, 10)
-
-	# with dbm.session() as session:
-	# 	res = session.execute(text("""
-	# 		EXPLAIN QUERY PLAN
-
-	# 		"""))
-	# 	for r in res:
-	# 		print(r)
+	# ----------------------------
+	# benchmark_insert_doujinshi(dbm, 1000)

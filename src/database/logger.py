@@ -18,7 +18,7 @@ class JsonFormatter(logging.Formatter):
 
 	def format(self, record):
 		log_record = {}
-		
+
 		if self.include_level:
 			log_record["level"] = record.levelname
 		if self.include_logger:
@@ -28,7 +28,7 @@ class JsonFormatter(logging.Formatter):
 
 		log_record["func"] = record.funcName
 		log_record["msg"] = record.getMessage()
-		
+
 		if hasattr(record, "extra_data"):
 			log_record.update(record.extra_data)
 

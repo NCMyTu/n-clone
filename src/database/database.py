@@ -4,12 +4,12 @@ from typing import List, Optional
 
 from .database_status import DatabaseStatus
 from .logger import DatabaseLogger
-from .models import Artist, Base, Character, Doujinshi, Group, Language, Parody, Tag, Page
-from .models.many_to_many_tables import (
+from ..models import Artist, Base, Character, Doujinshi, Group, Language, Parody, Tag, Page
+from ..models.many_to_many_tables import (
 	doujinshi_language as d_language, doujinshi_circle as d_circle, doujinshi_artist as d_artist,
 	doujinshi_tag as d_tag, doujinshi_character as d_character, doujinshi_parody as d_parody
 )
-from .utils import validate_doujinshi
+from ..utils import validate_doujinshi
 from sqlalchemy import create_engine, event, select, func, update, text, insert, delete, update
 from sqlalchemy import Integer, DateTime
 from sqlalchemy.engine import Engine
@@ -1154,7 +1154,7 @@ class DatabaseManager:
 					.where(m2m_table.c.doujinshi_id.in_(doujinshi_ids))
 				)
 				retrieved_item_ids = session.execute(statement).all()
-				
+
 				for doujinshi_id, item_id in retrieved_item_ids:
 					result[doujinshi_id][field].append(item_id_to_name[field][item_id])
 

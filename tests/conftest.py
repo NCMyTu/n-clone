@@ -1,4 +1,4 @@
-from src import DatabaseManager, DatabaseStatus
+from src.database import DatabaseManager, DatabaseStatus
 import pytest
 from .utils import _sample_n_random_doujinshi
 from pathlib import Path

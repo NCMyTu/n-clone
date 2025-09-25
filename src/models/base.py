@@ -25,9 +25,7 @@ class Base(DeclarativeBase):
 		Example:
 			"   New  \t\n  String   " -> "new string"
 		"""
-		if not isinstance(value, str):
-			raise ValueError(f"{key} must be a non-empty string. Got {type(value)} instead.")
-		if not value or not value.strip():
+		if not isinstance(value, str) or not value.strip():
 			raise ValueError(f"{key} must be a non-empty string. Got {type(value)} instead.")
 
 		normalized = " ".join(value.strip().split())

@@ -276,7 +276,7 @@ Insert a single `doujinshi` into the database.
   - __*DatabaseStatus.OK*__ - `doujinshi` inserted.
   - __*DatabaseStatus.VALIDATION_FAILED*__ - validation failed.
   - __*DatabaseStatus.ALREADY_EXISTS*__ - `doujinshi`'s ID already exists.
-  - __*DatabaseStatus.INTEGRITY_ERROR*__ - integrity errors (likely "path" uniqueness violation).
+  - __*DatabaseStatus.INTEGRITY_ERROR*__ - integrity errors.
   - __*DatabaseStatus.EXCEPTION*__ - other errors.
 
 ---
@@ -571,7 +571,7 @@ Update the path of a `doujinshi`.
     Status of the operation.
     - __*DatabaseStatus.OK*__ - path updated.
     - __*DatabaseStatus.NOT_FOUND*__ - `doujinshi` not found.
-    - __*DatabaseStatus.INTEGRITY_ERROR*__ - path is not a non-empty string or not unique.
+    - __*DatabaseStatus.INTEGRITY_ERROR*__ - path is not a non-empty string.
     - __*DatabaseStatus.EXCEPTION*__ - other errors.
 
 __update_count_of_parody()__\

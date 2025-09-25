@@ -412,7 +412,7 @@ class DatabaseManager:
 				DatabaseStatus.OK - insertion succeeded.
 				DatabaseStatus.VALIDATION_FAILED - validation failed.
 				DatabaseStatus.ALREADY_EXISTS - doujinshi ID already exists.
-				DatabaseStatus.INTEGRITY_ERROR - integrity errors (likely "path" uniqueness violation).
+				DatabaseStatus.INTEGRITY_ERROR - integrity errors.
 				DatabaseStatus.EXCEPTION - other errors.
 		"""
 		if not disable_validation:
@@ -461,8 +461,6 @@ class DatabaseManager:
 				self.logger.success(msg=f"doujinshi #{d_data.id} inserted", stacklevel=1)
 				return DatabaseStatus.OK
 			except IntegrityError as e:
-				# doujinshi.id is catched above,
-				# so this UNIQUE violation is on doujinshi.path.
 				self.logger.integrity_error(e, stacklevel=1, rollback=True)
 				return DatabaseStatus.INTEGRITY_ERROR
 			except Exception as e:
@@ -771,13 +769,25 @@ class DatabaseManager:
 		DatabaseStatus
 			Status of the operation:
 				DatabaseStatus.OK - update succeeded.
-				DatabaseStatus.INTEGRITY_ERROR - integrity errors (likely "path" uniqueness violation).
+				DatabaseStatus.INTEGRITY_ERROR - integrity errors.
 				DatabaseStatus.NOT_FOUND - doujinshi not found.
 				DatabaseStatus.EXCEPTION - other errors.
 		"""
+		# Dirty...
+		try:
+			# This validate function will be called again when db updates a column below.
+			# But keep it here since this function is rarely used and it looks less cluttered.
+			value = Base().validate_and_normalize_string(column, value)
+		except Exception as e:
+			msg = f"'{column.name} must be a non-empty string, got {value!r} instead"
+			self.logger.log_event(logging.INFO, DatabaseStatus.INTEGRITY_ERROR, msg=str(e), stacklevel=3)
+			return DatabaseStatus.INTEGRITY_ERROR
+
+		if column == Doujinshi.__table__.c.path and value.strip():
+			value = pathlib.Path(value).as_posix()
+
 		with self.session() as session:
 			doujinshi_str = f"doujinshi #{doujinshi_id}"
-			column_name = column.name
 
 			try:
 				if not session.scalar(select(Doujinshi.id).where(Doujinshi.id == doujinshi_id)):
@@ -791,18 +801,10 @@ class DatabaseManager:
 				)
 				session.commit()
 
-				self.logger.success(f"{doujinshi_str} updated new {column_name} {value!r}", stacklevel=2)
+				self.logger.success(f"{doujinshi_str} updated new {column.name} {value!r}", stacklevel=2)
 				return DatabaseStatus.OK
-			except ValueError as e:
-				if "must be a non-empty string" in str(e):
-					# Refer to logger.DatabaseLogger.log_event
-					msg = f"'{column_name} must be a non-empty string, got {value!r} instead"
-					self.logger.log_event(logging.INFO, DatabaseStatus.INTEGRITY_ERROR, stacklevel=3, msg=msg)
-					return DatabaseStatus.INTEGRITY_ERROR
-				self.logger.exception(e, stacklevel=2, rollback=True)
-				return DatabaseStatus.EXCEPTION
 			except IntegrityError as e:
-				# Only "path" column can trigger this.
+				# This will never(?) be reached.
 				self.logger.integrity_error(e, stacklevel=2, rollback=True)
 				return DatabaseStatus.INTEGRITY_ERROR
 			except Exception as e:
@@ -827,7 +829,7 @@ class DatabaseManager:
 		return self._update_column_of_doujinshi(doujinshi_id, Doujinshi.__table__.c.note, value)
 	def update_path_of_doujinshi(self, doujinshi_id, value):
 		"""Update the path of a `doujinshi`, normalizing to POSIX style."""
-		return self._update_column_of_doujinshi(doujinshi_id, Doujinshi.__table__.c.path, pathlib.Path(value).as_posix())
+		return self._update_column_of_doujinshi(doujinshi_id, Doujinshi.__table__.c.path, value)
 
 
 	def _get_count_by_name(self, model, names, session=None):

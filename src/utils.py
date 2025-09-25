@@ -83,11 +83,11 @@ def validate_doujinshi(doujinshi, user_prompt=True):
 			if value != [v.lower() for v in value]:
 				errors.append(f"{attr} has uppercase character.")
 
-	# Put this here to pass the test
+	# Put this here to pass the test.
 	if not is_non_empty_str(doujinshi["path"]):
 		errors.append(f"path must be a non-empty string.")
 	elif doujinshi["path"] and doujinshi["path"] != Path(doujinshi["path"]).as_posix():
-		warnings.append("path should use POSIX-style separator (no \\)")
+		warnings.append("path should use POSIX-style separator (no \\).")
 
 	if doujinshi["tags"] and "textless" in doujinshi["tags"]:
 		warnings.append("Consider moving \"textless\" from tags to languages.")

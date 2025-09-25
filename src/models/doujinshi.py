@@ -18,7 +18,7 @@ class Doujinshi(Base):
 	full_name_original: Mapped[str] = mapped_column(Text, nullable=True)
 	pretty_name: Mapped[str] = mapped_column(Text, nullable=True)
 	pretty_name_original: Mapped[str] = mapped_column(Text, nullable=True)
-	path: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+	path: Mapped[str] = mapped_column(Text, nullable=False)
 	note: Mapped[str] = mapped_column(Text, nullable=True)
 
 	pages: Mapped[list["Page"]] = relationship(
